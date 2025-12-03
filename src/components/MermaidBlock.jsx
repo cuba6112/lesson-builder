@@ -1,30 +1,44 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import mermaid from 'mermaid';
-import { GitBranch, Eye, EyeOff, AlertTriangle, RefreshCw } from 'lucide-react';
+import { GitBranch, Eye, EyeOff, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 
-// Initialize mermaid with custom config
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  securityLevel: 'loose',
-  fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-  flowchart: {
-    htmlLabels: true,
-    curve: 'basis',
-  },
-  sequence: {
-    diagramMarginX: 50,
-    diagramMarginY: 10,
-    actorMargin: 50,
-    width: 150,
-    height: 65,
-  },
-  gantt: {
-    titleTopMargin: 25,
-    barHeight: 20,
-    barGap: 4,
-  },
-});
+// Lazy load mermaid library
+let mermaidInstance = null;
+let mermaidPromise = null;
+
+async function getMermaid() {
+  if (mermaidInstance) return mermaidInstance;
+  if (mermaidPromise) return mermaidPromise;
+
+  mermaidPromise = import('mermaid').then((mod) => {
+    mermaidInstance = mod.default;
+    // Initialize mermaid with custom config
+    mermaidInstance.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+      fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+      },
+      sequence: {
+        diagramMarginX: 50,
+        diagramMarginY: 10,
+        actorMargin: 50,
+        width: 150,
+        height: 65,
+      },
+      gantt: {
+        titleTopMargin: 25,
+        barHeight: 20,
+        barGap: 4,
+      },
+    });
+    return mermaidInstance;
+  });
+
+  return mermaidPromise;
+}
 
 // Generate unique ID for each diagram
 let diagramId = 0;
@@ -40,34 +54,59 @@ export default function MermaidBlock({
   const [error, setError] = useState(null);
   const [editorVisible, setEditorVisible] = useState(isEditing);
   const [localCode, setLocalCode] = useState(code);
+  const [renderCount, setRenderCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
+
+  // Derive loading state from render vs completed counts
+  const isLoading = renderCount > completedCount;
 
   const renderDiagram = useCallback(async (diagramCode) => {
     if (!diagramCode?.trim()) {
-      setSvg('');
-      setError(null);
-      return;
+      return { svg: '', error: null };
     }
 
     try {
+      // Lazy load mermaid
+      const mermaid = await getMermaid();
+
       // Validate syntax first
       await mermaid.parse(diagramCode);
 
       // Render the diagram
       const id = generateId();
       const { svg: renderedSvg } = await mermaid.render(id, diagramCode);
-      setSvg(renderedSvg);
-      setError(null);
+      return { svg: renderedSvg, error: null };
     } catch (err) {
       console.error('Mermaid render error:', err);
-      setError(err.message || 'Failed to render diagram');
-      setSvg('');
+      return { svg: '', error: err.message || 'Failed to render diagram' };
     }
   }, []);
 
   // Render on code change
   useEffect(() => {
-    const codeToRender = isEditing ? localCode : code;
-    renderDiagram(codeToRender);
+    let isMounted = true;
+    const currentCode = isEditing ? localCode : code;
+
+    if (!currentCode?.trim()) {
+      setSvg('');
+      setError(null);
+      return;
+    }
+
+    // Increment render count to trigger loading state
+    setRenderCount(c => c + 1);
+
+    renderDiagram(currentCode).then((result) => {
+      if (isMounted) {
+        setSvg(result.svg);
+        setError(result.error);
+        setCompletedCount(c => c + 1);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [code, localCode, isEditing, renderDiagram]);
 
   const handleCodeChange = (e) => {
@@ -79,7 +118,10 @@ export default function MermaidBlock({
   };
 
   const handleRefresh = () => {
-    renderDiagram(isEditing ? localCode : code);
+    renderDiagram(isEditing ? localCode : code).then((result) => {
+      setSvg(result.svg);
+      setError(result.error);
+    });
   };
 
   return (
@@ -130,7 +172,12 @@ export default function MermaidBlock({
 
       {/* Diagram Preview */}
       <div className="bg-white p-4" ref={containerRef}>
-        {error ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <Loader2 size={24} className="animate-spin mr-2" />
+            <span className="text-sm">Loading diagram...</span>
+          </div>
+        ) : error ? (
           <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             <AlertTriangle size={20} className="flex-shrink-0 mt-0.5" />
             <div>
