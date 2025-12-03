@@ -228,10 +228,13 @@ export function clearChatHistory(lessonId) {
 // AI SETTINGS PERSISTENCE
 // =============================================================================
 
-// Default AI settings
+// Default AI settings (read from .env or fallback)
+const DEFAULT_MODEL = import.meta.env.VITE_DEFAULT_MODEL || 'llama3.2:3b';
+const DEFAULT_VISION_MODEL = import.meta.env.VITE_DEFAULT_VISION_MODEL || 'qwen3-vl:8b';
+
 const defaultAISettings = {
-  selectedModel: 'gpt-oss:20b',
-  visionModel: 'qwen3-vl:8b',
+  selectedModel: DEFAULT_MODEL,
+  visionModel: DEFAULT_VISION_MODEL,
   visionEnabled: false,
 };
 
@@ -240,7 +243,18 @@ export function loadAISettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return defaultAISettings;
-    return { ...defaultAISettings, ...JSON.parse(raw) };
+
+    const saved = JSON.parse(raw);
+
+    // Migrate legacy 'model' key to 'selectedModel' if present
+    if (saved.model && !saved.selectedModel) {
+      saved.selectedModel = saved.model;
+      delete saved.model;
+      // Persist the migration
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(saved));
+    }
+
+    return { ...defaultAISettings, ...saved };
   } catch (error) {
     console.error('Failed to load AI settings:', error);
     return defaultAISettings;

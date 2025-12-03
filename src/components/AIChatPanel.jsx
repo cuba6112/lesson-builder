@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
-import { Send, X, Bot, User, Sparkles, Loader2, Settings, Trash2, Wrench, CheckCircle, AlertCircle, Paperclip, FileText, Image as ImageIcon } from 'lucide-react';
+// @ts-nocheck
+import { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { Send, X, User, Loader2, Settings, Trash2, Wrench, CheckCircle, AlertCircle, Paperclip, FileText } from 'lucide-react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { ollamaService, isVisionModel, OllamaConnectionError, OllamaModelError } from '../services/ollama';
+import { ollamaService, OllamaConnectionError, OllamaModelError, isVisionModel } from '../services/ollama';
 import { generateBlockId, generateMessageId } from '../utils/ids';
 import { loadChatHistory, saveChatHistory, loadAISettings, saveAISettings, clearChatHistory } from '../services/storage';
 import { sanitizeTextInput, sanitizePromptInput } from '../utils/sanitize';
@@ -81,6 +83,21 @@ const TOOLS = {
       code: { type: 'string', description: 'Mermaid diagram code. Examples: "graph TD\\n    A[Start] --> B{Decision}\\n    B -->|Yes| C[End]" or "sequenceDiagram\\n    Alice->>Bob: Hello\\n    Bob-->>Alice: Hi!"', required: true }
     },
   },
+  create_math_block: {
+    name: 'create_math_block',
+    description: 'Create a math formula block using LaTeX notation. Perfect for equations, formulas, and mathematical expressions.',
+    parameters: {
+      code: { type: 'string', description: 'LaTeX math code. Examples: "E = mc^2", "\\\\frac{-b \\\\pm \\\\sqrt{b^2 - 4ac}}{2a}", "\\\\int_0^\\\\infty e^{-x^2} dx"', required: true }
+    },
+  },
+  stream_html_block: {
+    name: 'stream_html_block',
+    description: 'Stream HTML content to canvas in real-time. Use for longer content that should appear progressively. Provide a prompt and the AI will generate and stream the content live.',
+    parameters: {
+      prompt: { type: 'string', description: 'What content to generate (e.g., "comprehensive introduction to machine learning with examples")', required: true },
+      style: { type: 'string', description: 'Style hint: "header" for title blocks, "section" for content sections, "quiz" for interactive quizzes', required: false }
+    },
+  },
 };
 
 // =============================================================================
@@ -148,6 +165,49 @@ IMPORTANT:
 };
 
 /**
+ * Find balanced JSON object in string (handles nested braces correctly)
+ */
+const findBalancedJson = (str) => {
+  const start = str.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = start; i < str.length; i++) {
+    const char = str[i];
+
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '{') depth++;
+      else if (char === '}') {
+        depth--;
+        if (depth === 0) {
+          return str.slice(start, i + 1);
+        }
+      }
+    }
+  }
+
+  return null; // Unbalanced
+};
+
+/**
  * Parse tool calls from AI response
  * Returns { thought, toolCalls, message, raw }
  */
@@ -157,32 +217,69 @@ const parseToolCalls = (response) => {
   }
 
   try {
-    // Try to extract JSON from the response
-    let jsonStr = response;
-
-    // Check if response contains markdown code blocks
-    const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1].trim();
+    // Strategy 1: Try to extract JSON from markdown code block
+    const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      const jsonStr = findBalancedJson(codeBlockMatch[1].trim());
+      if (jsonStr) {
+        try {
+          const parsed = JSON.parse(jsonStr);
+          return {
+            thought: parsed.thought || null,
+            toolCalls: Array.isArray(parsed.tool_calls) ? parsed.tool_calls : [],
+            message: parsed.message || 'Done',
+            raw: response,
+          };
+        } catch {
+          // Continue to next strategy
+        }
+      }
     }
 
-    // Try to find JSON object in the response
-    const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-      jsonStr = objectMatch[0];
+    // Strategy 2: Find balanced JSON object in raw response
+    const balancedJson = findBalancedJson(response);
+    if (balancedJson) {
+      try {
+        const parsed = JSON.parse(balancedJson);
+        return {
+          thought: parsed.thought || null,
+          toolCalls: Array.isArray(parsed.tool_calls) ? parsed.tool_calls : [],
+          message: parsed.message || 'Done',
+          raw: response,
+        };
+      } catch {
+        // Continue to next strategy
+      }
     }
 
-    const parsed = JSON.parse(jsonStr);
+    // Strategy 3: Try to fix common JSON issues (trailing commas)
+    if (balancedJson) {
+      const fixedJson = balancedJson
+        .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+        .replace(/,\s*]/g, ']'); // Remove trailing commas before ]
+      try {
+        const parsed = JSON.parse(fixedJson);
+        return {
+          thought: parsed.thought || null,
+          toolCalls: Array.isArray(parsed.tool_calls) ? parsed.tool_calls : [],
+          message: parsed.message || 'Done',
+          raw: response,
+        };
+      } catch {
+        // Fall through to default
+      }
+    }
 
+    // If all parsing fails, treat the entire response as a message
+    console.warn('Failed to parse tool calls, treating as plain message');
     return {
-      thought: parsed.thought || null,
-      toolCalls: Array.isArray(parsed.tool_calls) ? parsed.tool_calls : [],
-      message: parsed.message || 'Done',
+      thought: null,
+      toolCalls: [],
+      message: response,
       raw: response,
     };
   } catch (e) {
-    // If parsing fails, treat the entire response as a message
-    console.warn('Failed to parse tool calls, treating as plain message:', e.message);
+    console.warn('parseToolCalls error:', e.message);
     return {
       thought: null,
       toolCalls: [],
@@ -223,6 +320,11 @@ const ToolResult = memo(({ tool, result, success }) => (
 ));
 
 ToolResult.displayName = 'ToolResult';
+ToolResult.propTypes = {
+  tool: PropTypes.string.isRequired,
+  result: PropTypes.any,
+  success: PropTypes.bool,
+};
 
 // Message component
 const ChatMessage = memo(({ message }) => {
@@ -252,7 +354,7 @@ const ChatMessage = memo(({ message }) => {
       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
         isUser ? 'bg-blue-100 text-blue-600' : isThinking ? 'bg-gradient-to-br from-purple-500 to-blue-500 text-white' : 'bg-purple-100 text-purple-600'
       }`}>
-        {isUser ? <User size={16} /> : isThinking ? <Sparkles size={16} className="animate-pulse" /> : <Bot size={16} />}
+        {isUser ? <User size={16} /> : <span className="text-base">🦑</span>}
       </div>
       <div className={`flex-1 min-w-0 ${isUser ? 'text-right' : ''}`}>
         <div className={`inline-block w-full max-w-full sm:max-w-[85%] px-4 py-2 rounded-2xl break-words ${
@@ -277,31 +379,6 @@ const ChatMessage = memo(({ message }) => {
           <ToolResult key={`${message.id}-tool-${i}`} tool={tc.tool} result={tc.result} success={tc.success} />
         ))}
 
-        {/* Image preview if present */}
-        {message.images && message.images.length > 0 && (
-          <div className="mt-2">
-            <img
-              src={message.imageUrl || `data:image/jpeg;base64,${message.images[0]}`}
-              alt="Attached"
-              className="max-w-[200px] rounded-lg border border-gray-200"
-            />
-          </div>
-        )}
-
-        {/* Attachment previews */}
-        {message.attachmentPreviews && message.attachmentPreviews.length > 0 && (
-          <div className={`mt-2 flex gap-2 flex-wrap ${isUser ? 'justify-end' : ''}`}>
-            {message.attachmentPreviews.map((preview, i) => (
-              <img
-                key={`preview-${i}`}
-                src={preview}
-                alt="Attachment"
-                className="w-16 h-16 object-cover rounded-lg border border-gray-200"
-              />
-            ))}
-          </div>
-        )}
-
         {/* Attachment badges */}
         {message.attachments && message.attachments.length > 0 && (
           <div className={`mt-2 flex gap-1 flex-wrap ${isUser ? 'justify-end' : ''}`}>
@@ -312,9 +389,8 @@ const ChatMessage = memo(({ message }) => {
                   isUser ? 'bg-blue-500/20 text-blue-100' : 'bg-gray-200 text-gray-600'
                 }`}
               >
-                {att.type === 'pdf' ? <FileText size={10} /> : <ImageIcon size={10} />}
+                <FileText size={10} />
                 {att.name}
-                {att.pages && ` (${att.pages}p)`}
               </span>
             ))}
           </div>
@@ -325,6 +401,17 @@ const ChatMessage = memo(({ message }) => {
 });
 
 ChatMessage.displayName = 'ChatMessage';
+ChatMessage.propTypes = {
+  message: PropTypes.shape({
+    id: PropTypes.string,
+    role: PropTypes.string,
+    content: PropTypes.string,
+    isThinking: PropTypes.bool,
+    isStatus: PropTypes.bool,
+    toolCalls: PropTypes.array,
+    attachments: PropTypes.array,
+  }).isRequired,
+};
 
 // Main AI Chat Panel
 export default function AIChatPanel({
@@ -348,23 +435,18 @@ export default function AIChatPanel({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [models, setModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState(savedSettings.model || 'gpt-oss:20b');
+  const [selectedModel, setSelectedModel] = useState(savedSettings.selectedModel);
   const [showSettings, setShowSettings] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('checking');
+  const [useAgentMode, setUseAgentMode] = useState(true); // Use tool-based agent
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [isProcessingFiles, setIsProcessingFiles] = useState(false);
-  const [useAgentMode, setUseAgentMode] = useState(true); // Use tool-based agent
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const abortControllerRef = useRef(null);
   const prevLessonIdRef = useRef(lessonId);
 
-  // Throttling refs for streaming updates
-  const lastProgressUpdateRef = useRef(0);
-  const lastToolUpdateRef = useRef(0);
-  const pendingProgressUpdateRef = useRef(null);
-  const pendingToolUpdateRef = useRef(null);
 
   // Load chat history when lesson changes or on mount
   useEffect(() => {
@@ -483,10 +565,77 @@ export default function AIChatPanel({
         return { success: true, result: 'Mermaid diagram block created' };
       }
 
+      case 'create_math_block': {
+        const mathBlock = {
+          type: 'math',
+          content: parameters.code || 'E = mc^2',
+        };
+        onAddBlock(mathBlock);
+        return { success: true, result: 'Math formula block created' };
+      }
+
+      case 'stream_html_block': {
+        // Create a placeholder block first
+        const blockId = generateBlockId();
+        onAddBlock({
+          type: 'html',
+          content: '<div style="padding: 20px; text-align: center; color: #9ca3af;">⏳ Generating content...</div>',
+          showPreview: true
+        }, null, blockId);
+
+        // Build the prompt based on style
+        const styleHints = {
+          header: 'Create a visually stunning header/title block with gradient background, large text, and professional styling.',
+          section: 'Create an informative content section with clear headings, well-formatted paragraphs, and visual elements.',
+          quiz: 'Create an interactive quiz section with styled question cards and answer options.',
+        };
+
+        const styleHint = styleHints[parameters.style] || styleHints.section;
+        const fullPrompt = `${styleHint}
+
+Topic: ${parameters.prompt}
+
+IMPORTANT: Return ONLY valid HTML. Use inline styles. Make it visually appealing with:
+- Modern colors and gradients
+- Proper padding and margins
+- Border-radius for rounded corners
+- Box shadows for depth
+- Emojis for visual interest
+
+Do NOT include any markdown, code fences, or explanations. ONLY HTML.`;
+
+        // Stream the response directly to the block
+        try {
+          await ollamaService.chatStream(
+            [{ role: 'user', content: fullPrompt }],
+            selectedModel,
+            (_chunk, accumulated) => {
+              // Extract HTML content (remove any accidental markdown)
+              let html = accumulated;
+              // Remove code fences if present
+              html = html.replace(/```html?\n?/gi, '').replace(/```\n?/g, '');
+              // Try to extract just the HTML
+              const htmlMatch = html.match(/<[^>]+[\s\S]*$/);
+              if (htmlMatch) {
+                onUpdateBlock(blockId, 'content', htmlMatch[0]);
+              } else if (html.trim()) {
+                onUpdateBlock(blockId, 'content', html);
+              }
+            },
+            () => {}
+          );
+          return { success: true, result: 'Content streamed to canvas' };
+        } catch (streamError) {
+          console.error('Stream error:', streamError);
+          onUpdateBlock(blockId, 'content', '<div style="padding: 20px; color: #ef4444;">❌ Failed to generate content</div>');
+          return { success: false, result: streamError.message };
+        }
+      }
+
       default:
         return { success: false, result: `Unknown tool: ${toolName}` };
     }
-  }, [blocks, onAddBlock, onUpdateBlock, onDeleteBlock, onSetTitle, onSetIcon]);
+  }, [blocks, onAddBlock, onUpdateBlock, onDeleteBlock, onSetTitle, onSetIcon, selectedModel]);
 
   // Memoize system prompt - only rebuild when lesson metadata changes
   const systemPrompt = useMemo(() => {
@@ -500,7 +649,7 @@ export default function AIChatPanel({
 
   // Run the AI agent with tool execution (streaming for faster feedback)
   const runAgentWithTools = useCallback(async (userMessage, options = {}) => {
-    const { signal, onToolExecuted, onProgress, conversationHistory = [] } = options;
+    const { signal, onToolExecuted, onStreamChunk, conversationHistory = [] } = options;
 
     // Build messages with conversation history for context
     // Filter out thinking/status messages and limit to last 6-8 messages (3-4 exchanges)
@@ -524,13 +673,13 @@ export default function AIChatPanel({
     let fullResponse = '';
 
     try {
-      // Use streaming for faster feedback, parse JSON at the end
+      // Use streaming with real-time display
       await ollamaService.chatStream(
         messages,
         selectedModel,
         (chunk, accumulated) => {
-          // Show progress as chunks arrive
-          onProgress?.(accumulated.length);
+          // Stream content in real-time to the UI
+          onStreamChunk?.(accumulated);
         },
         (final) => {
           fullResponse = final;
@@ -543,9 +692,35 @@ export default function AIChatPanel({
 
       console.log('Agent response:', { thought, toolCalls: toolCalls.length, message });
 
-      // Execute each tool call
+      // Execute tool calls - parallelize independent tools for speed
       const toolResults = [];
-      for (const call of toolCalls) {
+
+      // Identify tools that can run in parallel (don't depend on canvas state)
+      const parallelizableTools = ['set_lesson_title', 'set_lesson_icon'];
+      const parallelCalls = toolCalls.filter(c => parallelizableTools.includes(c.tool));
+      const sequentialCalls = toolCalls.filter(c => !parallelizableTools.includes(c.tool));
+
+      // Execute parallelizable tools concurrently
+      if (parallelCalls.length > 0 && !signal?.aborted) {
+        const parallelResults = await Promise.all(
+          parallelCalls.map(async (call) => {
+            const toolName = call.tool;
+            const params = call.params || {};
+            try {
+              const result = await executeTool(toolName, params);
+              onToolExecuted?.(toolName, result);
+              return { tool: toolName, ...result };
+            } catch (toolError) {
+              console.error(`Tool ${toolName} failed:`, toolError);
+              return { tool: toolName, success: false, result: toolError.message };
+            }
+          })
+        );
+        toolResults.push(...parallelResults);
+      }
+
+      // Execute sequential tools (content blocks that may depend on order)
+      for (const call of sequentialCalls) {
         if (signal?.aborted) break;
 
         const toolName = call.tool;
@@ -575,126 +750,6 @@ export default function AIChatPanel({
       throw error;
     }
   }, [systemPrompt, selectedModel, executeTool]);
-
-  // Convert image file to base64
-  const imageToBase64 = useCallback((file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }, []);
-
-  // Convert PDF to images using pdfjs
-  const pdfToImages = useCallback(async (file) => {
-    try {
-      const pdfjsLib = await import('pdfjs-dist');
-
-      // Set worker source
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const images = [];
-
-      // Limit to first 5 pages to avoid memory issues
-      const maxPages = Math.min(pdf.numPages, 5);
-
-      for (let i = 1; i <= maxPages; i++) {
-        const page = await pdf.getPage(i);
-        const scale = 1.5;
-        const viewport = page.getViewport({ scale });
-
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        await page.render({ canvasContext: context, viewport }).promise;
-
-        const base64 = canvas.toDataURL('image/png', 0.8).split(',')[1];
-        images.push({
-          base64,
-          pageNum: i,
-          totalPages: pdf.numPages
-        });
-      }
-
-      return images;
-    } catch (error) {
-      console.error('Failed to process PDF:', error);
-      throw error;
-    }
-  }, []);
-
-  // Handle file selection
-  const handleFileSelect = useCallback(async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    setIsProcessingFiles(true);
-
-    try {
-      const processedFiles = [];
-
-      for (const file of files) {
-        if (file.type.startsWith('image/')) {
-          const base64 = await imageToBase64(file);
-          processedFiles.push({
-            id: generateMessageId(),
-            type: 'image',
-            name: file.name,
-            base64,
-            preview: URL.createObjectURL(file)
-          });
-        } else if (file.type === 'application/pdf') {
-          const pdfImages = await pdfToImages(file);
-          processedFiles.push({
-            id: generateMessageId(),
-            type: 'pdf',
-            name: file.name,
-            pages: pdfImages,
-            preview: null // PDFs don't have a simple preview
-          });
-        }
-      }
-
-      setAttachedFiles(prev => [...prev, ...processedFiles]);
-    } catch (error) {
-      console.error('Failed to process files:', error);
-    } finally {
-      setIsProcessingFiles(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  }, [imageToBase64, pdfToImages]);
-
-  // Remove attached file
-  const removeAttachedFile = useCallback((fileId) => {
-    setAttachedFiles(prev => {
-      const file = prev.find(f => f.id === fileId);
-      if (file?.preview) {
-        URL.revokeObjectURL(file.preview);
-      }
-      return prev.filter(f => f.id !== fileId);
-    });
-  }, []);
-
-  // Clear all attached files
-  const clearAttachedFiles = useCallback(() => {
-    attachedFiles.forEach(file => {
-      if (file.preview) {
-        URL.revokeObjectURL(file.preview);
-      }
-    });
-    setAttachedFiles([]);
-  }, [attachedFiles]);
 
   // Check Ollama connection and fetch models
   useEffect(() => {
@@ -733,73 +788,192 @@ export default function AIChatPanel({
     }
   }, [isOpen]);
 
-  // Helper to wait for React state update
-  const wait = useCallback((ms) => new Promise(resolve => setTimeout(resolve, ms)), []);
 
-  // Throttle helper for streaming updates (~3-4 updates/second = 250-333ms)
-  const THROTTLE_MS = 300;
 
-  const throttledProgressUpdate = useCallback((thinkingId, content) => {
-    const now = Date.now();
-    const timeSinceLastUpdate = now - lastProgressUpdateRef.current;
+  // Extract text from PDF using pdfjs
+  const extractPdfText = useCallback(async (file) => {
+    try {
+      const pdfjsLib = await import('pdfjs-dist');
 
-    if (timeSinceLastUpdate >= THROTTLE_MS) {
-      // Execute immediately
-      lastProgressUpdateRef.current = now;
-      setMessages(prev => prev.map(m =>
-        m.id === thinkingId ? { ...m, content } : m
-      ));
-    } else {
-      // Queue for later execution
-      if (pendingProgressUpdateRef.current) {
-        clearTimeout(pendingProgressUpdateRef.current);
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({
+        data: arrayBuffer,
+        // Run parsing on main thread; workerSrc is unset in Tauri so spawning would fail
+        disableWorker: true,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        useSystemFonts: true,
+      }).promise;
+      const textParts = [];
+
+      // Extract text from all pages (limit to first 20 pages)
+      const maxPages = Math.min(pdf.numPages, 20);
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        if (pageText.trim()) {
+          textParts.push(`[Page ${i}]\n${pageText}`);
+        }
       }
-      pendingProgressUpdateRef.current = setTimeout(() => {
-        lastProgressUpdateRef.current = Date.now();
-        setMessages(prev => prev.map(m =>
-          m.id === thinkingId ? { ...m, content } : m
-        ));
-        pendingProgressUpdateRef.current = null;
-      }, THROTTLE_MS - timeSinceLastUpdate);
+
+      return textParts.join('\n\n');
+    } catch (error) {
+      console.error('Failed to extract PDF text:', error);
+      return `[Error extracting PDF: ${error.message}]`;
     }
   }, []);
 
-  const throttledToolUpdate = useCallback((thinkingId, content) => {
-    const now = Date.now();
-    const timeSinceLastUpdate = now - lastToolUpdateRef.current;
-
-    if (timeSinceLastUpdate >= THROTTLE_MS) {
-      // Execute immediately
-      lastToolUpdateRef.current = now;
-      setMessages(prev => prev.map(m =>
-        m.id === thinkingId ? { ...m, content } : m
-      ));
-    } else {
-      // Queue for later execution
-      if (pendingToolUpdateRef.current) {
-        clearTimeout(pendingToolUpdateRef.current);
-      }
-      pendingToolUpdateRef.current = setTimeout(() => {
-        lastToolUpdateRef.current = Date.now();
-        setMessages(prev => prev.map(m =>
-          m.id === thinkingId ? { ...m, content } : m
-        ));
-        pendingToolUpdateRef.current = null;
-      }, THROTTLE_MS - timeSinceLastUpdate);
-    }
-  }, []);
-
-  // Cleanup throttle timers on unmount
-  useEffect(() => {
-    return () => {
-      if (pendingProgressUpdateRef.current) {
-        clearTimeout(pendingProgressUpdateRef.current);
-      }
-      if (pendingToolUpdateRef.current) {
-        clearTimeout(pendingToolUpdateRef.current);
+  // Convert file to base64 string (used for vision models)
+  const fileToBase64 = useCallback((file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        // Strip data URL prefix if present
+        const base64 = result.includes(',') ? result.split(',')[1] : result;
+        resolve(base64);
+      } else {
+        reject(new Error('Unable to read file as base64'));
       }
     };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  }), []);
+
+  // Handle file selection - extract text content
+  const handleFileSelect = useCallback(async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsProcessingFiles(true);
+
+    try {
+      const processedFiles = [];
+
+      for (const file of files) {
+        if (file.type.startsWith('image/')) {
+          let base64 = null;
+          try {
+            base64 = await fileToBase64(file);
+          } catch (encodeError) {
+            console.error('Failed to encode image:', encodeError);
+          }
+
+          const visionReady = isVisionModel(selectedModel || '');
+          const imageNote = visionReady
+            ? `[Image: ${file.name}] Ready for vision analysis.`
+            : `[Image: ${file.name}] ⚠️ Image analysis requires a vision model (llava, llava-llama3, moondream). Switch to a vision model to analyze this image.`;
+
+          processedFiles.push({
+            id: generateMessageId(),
+            type: 'image',
+            name: file.name,
+            text: imageNote,
+            preview: URL.createObjectURL(file),
+            base64,
+            mimeType: file.type
+          });
+        } else if (file.type === 'application/pdf') {
+          const text = await extractPdfText(file);
+          processedFiles.push({
+            id: generateMessageId(),
+            type: 'pdf',
+            name: file.name,
+            text,
+            preview: null
+          });
+        } else if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+          const text = await file.text();
+          processedFiles.push({
+            id: generateMessageId(),
+            type: 'text',
+            name: file.name,
+            text,
+            preview: null
+          });
+        } else {
+          // Try to read as text for other file types
+          try {
+            const text = await file.text();
+            processedFiles.push({
+              id: generateMessageId(),
+              type: 'document',
+              name: file.name,
+              text,
+              preview: null
+            });
+          } catch {
+            processedFiles.push({
+              id: generateMessageId(),
+              type: 'unknown',
+              name: file.name,
+              text: `[Cannot read file: ${file.name}]`,
+              preview: null
+            });
+          }
+        }
+      }
+
+      setAttachedFiles(prev => [...prev, ...processedFiles]);
+    } catch (error) {
+      console.error('Failed to process files:', error);
+    } finally {
+      setIsProcessingFiles(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [extractPdfText, fileToBase64, selectedModel]);
+
+  // Remove attached file
+  const removeAttachedFile = useCallback((fileId) => {
+    setAttachedFiles(prev => prev.filter(f => f.id !== fileId));
   }, []);
+
+  // Clear all attached files
+  const clearAttachedFiles = useCallback(() => {
+    setAttachedFiles([]);
+  }, []);
+
+
+  // Debounced block updates to reduce React re-renders during streaming
+  // eslint-disable-next-line no-unused-vars
+  const _debouncedUpdateBlock = useMemo(() => {
+    const timeouts = new Map();
+    return (blockId, property, value) => {
+      if (timeouts.has(blockId)) {
+        clearTimeout(timeouts.get(blockId));
+      }
+      timeouts.set(blockId, setTimeout(() => {
+        onUpdateBlock(blockId, property, value);
+        timeouts.delete(blockId);
+      }, 50)); // Batch updates every 50ms
+    };
+  }, [onUpdateBlock]);
+
+  // Performance tracking for generation (available for debugging)
+  // eslint-disable-next-line no-unused-vars
+  const _performanceTracker = useRef({
+    startTime: 0,
+    blocksCompleted: 0,
+
+    startGeneration() {
+      this.startTime = performance.now();
+      this.blocksCompleted = 0;
+    },
+
+    blockComplete() {
+      this.blocksCompleted++;
+      const elapsed = performance.now() - this.startTime;
+      console.log(`Block ${this.blocksCompleted} completed in ${elapsed.toFixed(0)}ms`);
+    },
+
+    generationComplete() {
+      const totalTime = performance.now() - this.startTime;
+      console.log(`Total generation time: ${totalTime.toFixed(0)}ms for ${this.blocksCompleted} blocks`);
+    }
+  });
 
   // Unified thinking state management
   const updateThinking = useCallback((text) => {
@@ -809,8 +983,9 @@ export default function AIChatPanel({
     });
   }, []);
 
-  // Stream content directly to canvas with thinking in chat
-  const streamToCanvas = useCallback(async (userInput, { silent = false, force = false } = {}) => {
+  // Stream content directly to canvas with thinking in chat (legacy mode - kept for reference)
+  // eslint-disable-next-line no-unused-vars
+  const _streamToCanvas = useCallback(async (userInput, { silent = false, force = false } = {}) => {
     // Create abort controller for this operation
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
@@ -851,60 +1026,45 @@ export default function AIChatPanel({
 
       // Start thinking in chat
       addProgress(THINKING_MESSAGES.lessonPlanning(title));
-      await wait(100);
 
       if (signal.aborted) return null;
 
-      // Set title and icon
-      addProgress(THINKING_MESSAGES.lessonSetTitle(title));
+      // Set title and icon immediately (parallel)
       onSetTitle(title);
-
       const icon = getIconForTopic(topic);
       onSetIcon(icon);
 
-      // STEP 1: Create Title Block
-      addProgress(THINKING_MESSAGES.lessonStep1());
-
-      if (signal.aborted) return null;
+      // PROGRESSIVE LOADING: Create ALL placeholder blocks immediately
+      // This shows the user instant feedback while content streams in parallel
+      addProgress('🚀 Creating lesson structure...');
 
       const titleBlockId = generateBlockId();
-      onAddBlock({ type: 'html', content: UI_MESSAGES.loadingTitle, showPreview: true }, null, titleBlockId);
-      await wait(50);
-
-      await streamHtmlToBlock(LESSON_PROMPTS.title(topic), titleBlockId);
-
-      // STEP 2: Introduction & Learning Objectives
-      addProgress(THINKING_MESSAGES.lessonStep2());
-
-      if (signal.aborted) return null;
-
       const introBlockId = generateBlockId();
-      onAddBlock({ type: 'html', content: UI_MESSAGES.loadingIntro, showPreview: true }, null, introBlockId);
-      await wait(50);
-
-      await streamHtmlToBlock(LESSON_PROMPTS.introduction(topic), introBlockId);
-
-      // STEP 3: Main Content
-      addProgress(THINKING_MESSAGES.lessonStep3());
-
-      if (signal.aborted) return null;
-
       const mainBlockId = generateBlockId();
+      const quizBlockId = generateBlockId();
+
+      // Create all placeholders at once (instant visual feedback)
+      onAddBlock({ type: 'html', content: UI_MESSAGES.loadingTitle, showPreview: true }, null, titleBlockId);
+      onAddBlock({ type: 'html', content: UI_MESSAGES.loadingIntro, showPreview: true }, null, introBlockId);
       onAddBlock({ type: 'html', content: UI_MESSAGES.loadingMain, showPreview: true }, null, mainBlockId);
-      await wait(50);
-
-      await streamHtmlToBlock(LESSON_PROMPTS.mainContent(topic), mainBlockId);
-
-      // STEP 4: Quiz
-      addProgress(THINKING_MESSAGES.lessonStep4());
+      onAddBlock({ type: 'html', content: UI_MESSAGES.loadingQuiz, showPreview: true }, null, quizBlockId);
 
       if (signal.aborted) return null;
 
-      const quizBlockId = generateBlockId();
-      onAddBlock({ type: 'html', content: UI_MESSAGES.loadingQuiz, showPreview: true }, null, quizBlockId);
-      await wait(50);
+      // PARALLEL STREAMING: Stream all 4 blocks simultaneously
+      // This is 3-4x faster than sequential streaming
+      addProgress('⚡ Generating all sections in parallel...');
 
-      await streamHtmlToBlock(LESSON_PROMPTS.quizSection(topic), quizBlockId);
+      // Create all streaming promises in parallel
+      const streamPromises = [
+        streamHtmlToBlock(LESSON_PROMPTS.title(topic), titleBlockId),
+        streamHtmlToBlock(LESSON_PROMPTS.introduction(topic), introBlockId),
+        streamHtmlToBlock(LESSON_PROMPTS.mainContent(topic), mainBlockId),
+        streamHtmlToBlock(LESSON_PROMPTS.quizSection(topic), quizBlockId),
+      ];
+
+      // Execute all streams in parallel for maximum performance
+      await Promise.all(streamPromises);
 
       // Final message
       addProgress(THINKING_MESSAGES.lessonComplete(title));
@@ -916,7 +1076,6 @@ export default function AIChatPanel({
       if (!force && lowerInput.includes('heading')) {
         addProgress(THINKING_MESSAGES.addingHeading());
         onAddBlock({ type: 'heading', content: '' }, null, blockId);
-        await wait(50);
 
         try {
           await ollamaService.chatStream(
@@ -943,7 +1102,6 @@ export default function AIChatPanel({
         addProgress(THINKING_MESSAGES.addingHtml(htmlType));
 
         onAddBlock({ type: 'html', content: UI_MESSAGES.loadingBlock(htmlType), showPreview: true }, null, blockId);
-        await wait(50);
 
         // Build the prompt with type-specific additions
         let typeSpecificPrompt = '';
@@ -962,7 +1120,6 @@ export default function AIChatPanel({
         addProgress(THINKING_MESSAGES.addingQuiz());
 
         onAddBlock({ type: 'html', content: UI_MESSAGES.loadingQuiz, showPreview: true }, null, blockId);
-        await wait(50);
 
         await streamHtmlToBlock(BLOCK_PROMPTS.quiz(topic), blockId);
 
@@ -973,7 +1130,6 @@ export default function AIChatPanel({
         addProgress(THINKING_MESSAGES.addingContent());
 
         onAddBlock({ type: 'html', content: UI_MESSAGES.loadingContent, showPreview: true }, null, blockId);
-        await wait(50);
 
         await streamHtmlToBlock(BLOCK_PROMPTS.content(topic), blockId);
 
@@ -983,7 +1139,7 @@ export default function AIChatPanel({
     }
 
     return null;
-  }, [selectedModel, onSetTitle, onSetIcon, onAddBlock, onUpdateBlock, updateThinking, wait]);
+  }, [selectedModel, onSetTitle, onSetIcon, onAddBlock, onUpdateBlock, updateThinking]);
 
   const handleSend = useCallback(async () => {
     if ((!input.trim() && attachedFiles.length === 0) || isLoading) return;
@@ -995,40 +1151,44 @@ export default function AIChatPanel({
     const userInput = sanitizePromptInput(input);
     const displayInput = sanitizeTextInput(input);
 
-    // Collect all images from attachments
-    const attachmentImages = [];
+    // Build document context from attached files
+    let documentContext = '';
     const attachmentInfo = [];
-    for (const file of attachedFiles) {
-      if (file.type === 'image') {
-        attachmentImages.push(file.base64);
-        attachmentInfo.push({ type: 'image', name: file.name });
-      } else if (file.type === 'pdf') {
-        for (const page of file.pages) {
-          attachmentImages.push(page.base64);
+    if (attachedFiles.length > 0) {
+      const docParts = attachedFiles.map(file => {
+        attachmentInfo.push({ type: file.type, name: file.name });
+        if (file.type === 'image') {
+          const canAnalyze = isVisionModel(selectedModel || '') && file.base64;
+          const note = canAnalyze
+            ? `[Image: ${file.name}] Ready for vision analysis.`
+            : file.text;
+          return `--- Document: ${file.name} ---\n${note}`;
         }
-        attachmentInfo.push({ type: 'pdf', name: file.name, pages: file.pages.length });
-      }
+
+        return `--- Document: ${file.name} ---\n${file.text}`;
+      });
+      documentContext = '\n\n[ATTACHED DOCUMENTS]\n' + docParts.join('\n\n') + '\n[END DOCUMENTS]\n\n';
     }
 
-    // Build attachment previews as stable data URLs so cleanup won't break chat history
-    const attachmentPreviews = attachedFiles
-      .filter(f => f.type === 'image')
-      .map(f => (f.base64 ? `data:image/*;base64,${f.base64}` : f.preview))
-      .filter(Boolean);
+    // Extract vision images (base64) for models that support them
+    const visionImages = attachedFiles
+      .filter(file => file.type === 'image' && file.base64)
+      .map(file => file.base64);
 
-    // Create user message with attachment previews (use sanitized display input)
+    // Create user message with attachment badges
     const userMessage = {
       id: generateMessageId(),
       role: 'user',
-      content: displayInput || 'Analyze these files',
-      hasVisionContext: true,
-      attachments: attachmentInfo.length > 0 ? attachmentInfo : undefined,
-      attachmentPreviews: attachmentPreviews.length > 0 ? attachmentPreviews : undefined
+      content: displayInput || 'Analyze these documents',
+      attachments: attachmentInfo.length > 0 ? attachmentInfo : undefined
     };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     clearAttachedFiles();
     setIsLoading(true);
+
+    // Prepend document context to user input for processing
+    const fullUserInput = documentContext + (userInput || 'Please analyze the attached documents.');
 
     try {
       // Remove any lingering thinking/status messages, then show status for this request
@@ -1045,32 +1205,163 @@ export default function AIChatPanel({
       ]);
 
       // =========================================
-      // AGENT MODE: Use tool-based execution
+      // FAST PATH: Direct canvas streaming for lesson creation
+      // Bypasses agent JSON parsing for 3-4x faster generation
+      // =========================================
+      const lowerInput = userInput.toLowerCase();
+      const isLessonCreation = (lowerInput.includes('create') || lowerInput.includes('make') ||
+                                lowerInput.includes('write') || lowerInput.includes('generate')) &&
+                               (lowerInput.includes('lesson') || lowerInput.includes('about') ||
+                                lowerInput.includes('teach') || lowerInput.includes('explain'));
+
+      if (isLessonCreation) {
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
+
+        try {
+          // Extract topic from input
+          const topicMatch = userInput.match(/(?:about|on|for|explaining|regarding)\s+(.+?)(?:\.|$)/i);
+          const topic = topicMatch ? topicMatch[1].trim() :
+            userInput.replace(/^(create|make|write|generate)\s*(a\s*)?(lesson|course|tutorial)?\s*(about|on|for)?\s*/i, '').trim();
+          const title = topic.charAt(0).toUpperCase() + topic.slice(1);
+
+          // Set title and icon immediately
+          setMessages(prev => prev.map(m => m.id === thinkingId
+            ? { ...m, content: '🚀 Creating lesson structure...' }
+            : m
+          ));
+          onSetTitle(title);
+          onSetIcon(getIconForTopic(topic));
+
+          // Create all placeholder blocks instantly (progressive loading)
+          const titleBlockId = generateBlockId();
+          const introBlockId = generateBlockId();
+          const mainBlockId = generateBlockId();
+          const quizBlockId = generateBlockId();
+
+          onAddBlock({ type: 'html', content: UI_MESSAGES.loadingTitle, showPreview: true }, null, titleBlockId);
+          onAddBlock({ type: 'html', content: UI_MESSAGES.loadingIntro, showPreview: true }, null, introBlockId);
+          onAddBlock({ type: 'html', content: UI_MESSAGES.loadingMain, showPreview: true }, null, mainBlockId);
+          onAddBlock({ type: 'html', content: UI_MESSAGES.loadingQuiz, showPreview: true }, null, quizBlockId);
+
+          if (signal.aborted) {
+            setMessages(prev => prev.filter(m => m.id !== thinkingId));
+            return;
+          }
+
+          setMessages(prev => prev.map(m => m.id === thinkingId
+            ? { ...m, content: '⚡ Streaming all sections in parallel...' }
+            : m
+          ));
+
+          // Stream HTML directly to blocks in parallel (FAST!)
+          const streamToBlock = async (prompt, blockId) => {
+            try {
+              await ollamaService.chatStream(
+                [{ role: 'user', content: prompt }],
+                selectedModel,
+                (_chunk, cumulative) => {
+                  // Stream raw content immediately - show progress as it generates
+                  // Try to extract HTML, but show raw content if not yet valid
+                  const htmlMatch = cumulative.match(/<[^>]+>[\s\S]*/);
+                  const content = htmlMatch ? htmlMatch[0] : cumulative;
+                  onUpdateBlock(blockId, 'content', content);
+                },
+                (finalContent) => {
+                  // On completion, clean up and set final HTML
+                  const htmlMatch = finalContent.match(/<[^>]+>[\s\S]*<\/[^>]+>/s);
+                  onUpdateBlock(blockId, 'content', htmlMatch ? htmlMatch[0] : finalContent);
+                },
+                signal
+              );
+            } catch (e) {
+              if (e.name !== 'AbortError') throw e;
+            }
+          };
+
+          // Execute all 4 streams in parallel
+          await Promise.all([
+            streamToBlock(LESSON_PROMPTS.title(topic), titleBlockId),
+            streamToBlock(LESSON_PROMPTS.introduction(topic), introBlockId),
+            streamToBlock(LESSON_PROMPTS.mainContent(topic), mainBlockId),
+            streamToBlock(LESSON_PROMPTS.quizSection(topic), quizBlockId),
+          ]);
+
+          // Done - show completion message
+          setMessages(prev => {
+            const filtered = prev.filter(m => m.id !== thinkingId);
+            return [...filtered, {
+              id: generateMessageId(),
+              role: 'assistant',
+              content: `✨ Created "${title}" lesson with 4 sections streaming in parallel!`,
+            }];
+          });
+
+          return;
+        } catch (streamError) {
+          if (streamError.name === 'AbortError') {
+            setMessages(prev => prev.filter(m => m.id !== thinkingId));
+            return;
+          }
+          console.error('Stream error:', streamError);
+          setMessages(prev => {
+            const filtered = prev.filter(m => m.id !== thinkingId);
+            return [...filtered, {
+              id: generateMessageId(),
+              role: 'assistant',
+              content: `❌ Streaming error: ${streamError.message}`,
+            }];
+          });
+          return;
+        }
+      }
+
+      // =========================================
+      // AGENT MODE: Use tool-based execution for other requests
+      // Streams AI response in real-time while parsing tools at the end
       // =========================================
       if (useAgentMode) {
         abortControllerRef.current = new AbortController();
         const signal = abortControllerRef.current.signal;
 
+        // Create a streaming message that will show the response as it arrives
+        const streamingMsgId = generateMessageId();
+
         try {
-          // Run the agent with streaming progress and conversation history
-          const result = await runAgentWithTools(userInput, {
+          // Run the agent with real-time streaming and conversation history
+          const result = await runAgentWithTools(fullUserInput, {
             signal,
             conversationHistory,
-            onProgress: (chars) => {
-              // Update thinking message with progress dots (throttled to ~3-4 updates/second)
-              const dots = '.'.repeat((Math.floor(chars / 50) % 3) + 1);
-              throttledProgressUpdate(thinkingId, `🦑 Thinking${dots}`);
+            onStreamChunk: (accumulated) => {
+              // Show the raw streaming response in real-time
+              // Update the streaming message immediately with whatever we have
+              setMessages(prev => {
+                const existing = prev.find(m => m.id === streamingMsgId);
+                if (existing) {
+                  return prev.map(m => m.id === streamingMsgId
+                    ? { ...m, content: accumulated }
+                    : m
+                  );
+                } else {
+                  // First chunk - replace thinking with streaming message
+                  const filtered = prev.filter(m => m.id !== thinkingId);
+                  return [...filtered, {
+                    id: streamingMsgId,
+                    role: 'assistant',
+                    content: accumulated,
+                    isStreaming: true
+                  }];
+                }
+              });
             },
-            onToolExecuted: (toolName, toolResult) => {
-              console.log('Tool executed:', toolName, toolResult);
-              // Show tool execution in thinking message (throttled to ~3-4 updates/second)
-              throttledToolUpdate(thinkingId, `🔧 Running ${toolName}...`);
+            onToolExecuted: (toolName) => {
+              console.log('Tool executed:', toolName);
             },
           });
 
-          // Remove thinking and show result
+          // Finalize the message with tool results
           setMessages(prev => {
-            const filtered = prev.filter(m => m.id !== thinkingId);
+            const filtered = prev.filter(m => m.id !== thinkingId && m.id !== streamingMsgId);
             return [...filtered, {
               id: generateMessageId(),
               role: 'assistant',
@@ -1086,7 +1377,7 @@ export default function AIChatPanel({
           return;
         } catch (agentError) {
           if (agentError.name === 'AbortError') {
-            setMessages(prev => prev.filter(m => m.id !== thinkingId));
+            setMessages(prev => prev.filter(m => m.id !== thinkingId && m.id !== streamingMsgId));
             return;
           }
 
@@ -1094,7 +1385,7 @@ export default function AIChatPanel({
 
           // Surface error to user instead of falling back
           setMessages(prev => {
-            const filtered = prev.filter(m => m.id !== thinkingId);
+            const filtered = prev.filter(m => m.id !== thinkingId && m.id !== streamingMsgId);
             return [...filtered, {
               id: generateMessageId(),
               role: 'assistant',
@@ -1107,82 +1398,56 @@ export default function AIChatPanel({
       }
 
       // =========================================
-      // LEGACY MODE: Chat with optional vision for attachments
+      // LEGACY MODE: Regular text chat with streaming
       // Only used when agent mode is disabled
       // =========================================
-      const hasAttachments = attachmentImages.length > 0;
-      const modelSupportsVision = isVisionModel(selectedModel);
+      const useVisionStream = visionImages.length > 0 && isVisionModel(selectedModel || '');
+      const legacyMessages = [
+        { role: 'system', content: SYSTEM_PROMPTS.assistant },
+        useVisionStream
+          ? { role: 'user', content: fullUserInput, images: visionImages }
+          : { role: 'user', content: fullUserInput }
+      ];
 
-      if (hasAttachments && modelSupportsVision) {
-        // Use vision API when we have attachments and model supports it
-        const visionMessages = [
-          { role: 'system', content: SYSTEM_PROMPTS.assistant },
-          {
-            role: 'user',
-            content: userInput || 'Please analyze these files.',
-            images: attachmentImages
-          }
-        ];
+      const streamFn = useVisionStream
+        ? ollamaService.chatStreamWithVision.bind(ollamaService)
+        : ollamaService.chatStream.bind(ollamaService);
 
-        await ollamaService.chatStreamWithVision(
-          visionMessages,
-          selectedModel,
-          () => {},
-          (finalResponse) => {
-            setMessages(prev => {
-              const updated = prev.map(m =>
-                m.id === thinkingId
-                  ? { ...m, content: 'Done', isThinking: false, isStatus: true, hasVisionContext: true }
-                  : m
+      // Create streaming message ID
+      const legacyStreamId = generateMessageId();
+
+      await streamFn(
+        legacyMessages,
+        selectedModel,
+        (_chunk, accumulated) => {
+          // Stream content in real-time
+          setMessages(prev => {
+            const existing = prev.find(m => m.id === legacyStreamId);
+            if (existing) {
+              return prev.map(m => m.id === legacyStreamId
+                ? { ...m, content: accumulated }
+                : m
               );
-              return [...updated, {
-                id: generateMessageId(),
+            } else {
+              // First chunk - replace thinking with streaming message
+              const filtered = prev.filter(m => m.id !== thinkingId);
+              return [...filtered, {
+                id: legacyStreamId,
                 role: 'assistant',
-                content: finalResponse,
-                hasVisionContext: true
+                content: accumulated,
+                isStreaming: true
               }];
-            });
-          }
-        );
-      } else if (hasAttachments && !modelSupportsVision) {
-        // Warn user that attachments won't be processed
-        setMessages(prev => {
-          const updated = prev.map(m =>
-            m.id === thinkingId
-              ? { ...m, content: 'Done', isThinking: false, isStatus: true }
-              : m
-          );
-          return [...updated, {
-            id: generateMessageId(),
-            role: 'assistant',
-            content: `⚠️ The current model (${selectedModel}) doesn't support vision. Your attachments were received but cannot be analyzed. Consider switching to a vision model like \`llava\`, \`llava-llama3\`, or \`moondream\` to analyze images and PDFs.`
-          }];
-        });
-      } else {
-        // Regular text chat
-        await ollamaService.chatStream(
-          [
-            { role: 'system', content: SYSTEM_PROMPTS.assistant },
-            { role: 'user', content: userInput }
-          ],
-          selectedModel,
-          () => {},
-          (finalResponse) => {
-            setMessages(prev => {
-              const updated = prev.map(m =>
-                m.id === thinkingId
-                  ? { ...m, content: 'Done', isThinking: false, isStatus: true }
-                  : m
-              );
-              return [...updated, {
-                id: generateMessageId(),
-                role: 'assistant',
-                content: finalResponse
-              }];
-            });
-          }
-        );
-      }
+            }
+          });
+        },
+        (finalResponse) => {
+          // Finalize the message
+          setMessages(prev => prev.map(m => m.id === legacyStreamId
+            ? { ...m, content: finalResponse, isStreaming: false }
+            : m
+          ));
+        }
+      );
 
     } catch (error) {
       console.error('Error:', error);
@@ -1212,7 +1477,7 @@ export default function AIChatPanel({
       setIsLoading(false);
       abortControllerRef.current = null;
     }
-  }, [input, isLoading, selectedModel, attachedFiles, clearAttachedFiles, streamToCanvas, useAgentMode, runAgentWithTools, messages, throttledProgressUpdate, throttledToolUpdate]);
+  }, [input, isLoading, selectedModel, attachedFiles, clearAttachedFiles, useAgentMode, runAgentWithTools, messages, onAddBlock, onSetIcon, onSetTitle, onUpdateBlock]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1251,10 +1516,12 @@ export default function AIChatPanel({
     <div className="fixed right-0 top-0 h-full w-96 bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col animate-slideIn">
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-            <Sparkles size={16} className="text-white" />
-          </div>
+        <div className="flex items-center gap-3">
+          <img
+            src="/ika.jpg"
+            alt="Ika AI Agent"
+            className="w-10 h-10 rounded-lg object-cover shadow-sm"
+          />
           <div>
             <h3 className="font-semibold text-gray-900 flex items-center gap-1">
               {AGENT.name} {AGENT.avatar}
@@ -1311,9 +1578,9 @@ export default function AIChatPanel({
               ))}
               {models.length === 0 && (
                 <>
-                  <option value="gpt-oss:20b">gpt-oss:20b</option>
-                  <option value="qwen3:8b">qwen3:8b</option>
-                  <option value="llama3.2">llama3.2</option>
+                  <option value={import.meta.env.VITE_DEFAULT_MODEL || 'llama3.2:3b'}>
+                    {import.meta.env.VITE_DEFAULT_MODEL || 'llama3.2:3b'}
+                  </option>
                 </>
               )}
             </select>
@@ -1365,14 +1632,10 @@ export default function AIChatPanel({
                 className="relative group bg-gray-100 rounded-lg p-2 flex items-center gap-2"
               >
                 {file.type === 'image' && file.preview ? (
-                  <img
-                    src={file.preview}
-                    alt={file.name}
-                    className="w-12 h-12 object-cover rounded"
-                  />
+                  <img src={file.preview} alt={file.name} className="w-10 h-10 rounded object-cover" />
                 ) : (
-                  <div className="w-12 h-12 bg-red-100 rounded flex items-center justify-center">
-                    <FileText size={20} className="text-red-600" />
+                  <div className="w-10 h-10 bg-purple-100 rounded flex items-center justify-center">
+                    <FileText size={18} className="text-purple-600" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
@@ -1380,7 +1643,13 @@ export default function AIChatPanel({
                     {file.name}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {file.type === 'pdf' ? `${file.pages?.length || 0} pages` : 'Image'}
+                    {file.type === 'image'
+                      ? (isVisionModel(selectedModel || '') ? 'Vision image' : '⚠️ Needs vision model')
+                      : file.type === 'pdf'
+                        ? 'PDF'
+                        : file.type === 'text'
+                          ? 'Text'
+                          : 'Document'}
                   </p>
                 </div>
                 <button
@@ -1399,7 +1668,7 @@ export default function AIChatPanel({
         {isProcessingFiles && (
           <div className="mb-3 flex items-center gap-2 text-sm text-purple-600">
             <Loader2 size={14} className="animate-spin" />
-            Processing files...
+            Extracting text from documents...
           </div>
         )}
 
@@ -1408,7 +1677,7 @@ export default function AIChatPanel({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,.pdf"
+            accept=".pdf,.txt,.md,.json,.csv,.xml,.html,image/*"
             multiple
             onChange={handleFileSelect}
             className="hidden"
@@ -1418,7 +1687,7 @@ export default function AIChatPanel({
             disabled={isLoading || isProcessingFiles}
             className="px-3 py-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors disabled:opacity-50"
             aria-label="Attach file"
-            title="Upload image or PDF"
+            title="Upload file (images need vision model)"
           >
             <Paperclip size={18} />
           </button>

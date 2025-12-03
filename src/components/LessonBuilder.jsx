@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import DOMPurify from 'dompurify';
-import { Plus, Trash2, GripVertical, Eye, Edit3, AlignLeft, Video, ListChecks, Image, ChevronRight, Heading, Download, Sparkles, Code, FolderOpen, FileText, Hash, Braces, Zap, GitBranch, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Eye, Edit3, AlignLeft, Video, ListChecks, Image, ChevronRight, Heading, Download, Code, FolderOpen, FileText, Hash, Braces, Zap, GitBranch, Calculator, HelpCircle } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -8,8 +8,11 @@ import AIChatPanel from './AIChatPanel';
 import ErrorBoundary from './ErrorBoundary';
 import ReactBlock from './ReactBlock';
 import MermaidBlock from './MermaidBlock';
+import MathBlock from './MathBlock';
 import { generateBlockId } from '../utils/ids';
-import { downloadMarkdown, downloadPdf } from '../services/export';
+import { downloadMarkdown } from '../services/export';
+import LessonExportView from './LessonExportView';
+import HelpModal from './HelpModal';
 
 // Configure DOMPurify to allow safe styling
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -31,6 +34,7 @@ const SlashCommandMenu = memo(({ position, onSelect, onClose, filter }) => {
     { type: 'code', icon: Braces, label: 'Code', description: 'Code snippet with syntax highlighting' },
     { type: 'react', icon: Zap, label: 'React', description: 'Interactive React component' },
     { type: 'mermaid', icon: GitBranch, label: 'Mermaid', description: 'Flowchart, sequence, or other diagram' },
+    { type: 'math', icon: Calculator, label: 'Math', description: 'LaTeX math formula' },
   ];
 
   const filteredCommands = commands.filter(cmd =>
@@ -237,7 +241,7 @@ const sanitizeHTML = (html) => {
 };
 
 // Notion-style Block Component
-const Block = memo(({ block, isActive, onSelect, onDelete, onUpdate, onAddBlockAfter, onMove, index, blocks }) => {
+const Block = memo(({ block, isActive, onSelect, onDelete, onUpdate, onAddBlockAfter, index, blocks }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [slashMenu, setSlashMenu] = useState(null);
   const [slashFilter, setSlashFilter] = useState('');
@@ -688,32 +692,8 @@ const Block = memo(({ block, isActive, onSelect, onDelete, onUpdate, onAddBlockA
         )}
       </div>
 
-      {/* Move & Delete Buttons */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => onMove(block.id, index - 1)}
-          disabled={index === 0}
-          className={`p-1 rounded transition-all ${
-            index === 0
-              ? 'text-gray-200 cursor-not-allowed'
-              : 'hover:bg-gray-200 text-gray-400 hover:text-gray-600'
-          }`}
-          aria-label="Move block up"
-        >
-          <ChevronUp size={14} />
-        </button>
-        <button
-          onClick={() => onMove(block.id, index + 1)}
-          disabled={index === blocks.length - 1}
-          className={`p-1 rounded transition-all ${
-            index === blocks.length - 1
-              ? 'text-gray-200 cursor-not-allowed'
-              : 'hover:bg-gray-200 text-gray-400 hover:text-gray-600'
-          }`}
-          aria-label="Move block down"
-        >
-          <ChevronDown size={14} />
-        </button>
+      {/* Delete Button */}
+      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={handleDelete}
           className="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-all"
@@ -777,6 +757,8 @@ export default function LessonBuilder({
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportMode, setIsExportMode] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -890,9 +872,8 @@ export default function LessonBuilder({
     try {
       switch (format) {
         case 'pdf':
-          console.log('Starting PDF export...', lessonData);
-          await downloadPdf(lessonData);
-          console.log('PDF export complete');
+          // Use browser-native print-to-PDF approach
+          setIsExportMode(true);
           break;
 
         case 'markdown':
@@ -1034,7 +1015,6 @@ export default function LessonBuilder({
                 onDelete={deleteBlock}
                 onUpdate={updateBlock}
                 onAddBlockAfter={addBlock}
-                onMove={moveBlock}
               />
             ))}
           </div>
@@ -1188,6 +1168,16 @@ export default function LessonBuilder({
                 />
               </ErrorBoundary>
             )}
+
+            {block.type === 'math' && (
+              <ErrorBoundary>
+                <MathBlock
+                  code={block.content || 'E = mc^2'}
+                  onCodeChange={(newCode) => updateBlock(block.id, 'content', newCode)}
+                  isEditing={!isPreview}
+                />
+              </ErrorBoundary>
+            )}
           </div>
         ))}
       </div>
@@ -1196,6 +1186,20 @@ export default function LessonBuilder({
 
   // Calculate margins based on open panels
   const mainMargins = `${isLibraryOpen ? 'ml-72' : ''} ${isAIPanelOpen ? 'mr-96' : ''}`;
+
+  // Show export view when in export mode (for PDF)
+  if (isExportMode) {
+    return (
+      <LessonExportView
+        lesson={{
+          title: lessonTitle || 'Untitled',
+          icon: lessonIcon,
+          blocks
+        }}
+        onClose={() => setIsExportMode(false)}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -1229,17 +1233,6 @@ export default function LessonBuilder({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleAIPanel}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                isAIPanelOpen
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <Sparkles size={14} />
-              AI
-            </button>
             <button
               onClick={togglePreview}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -1288,9 +1281,20 @@ export default function LessonBuilder({
                 onExport={handleExport}
               />
             </div>
+            <button
+              onClick={() => setIsHelpOpen(true)}
+              className="p-2 rounded-md text-gray-500 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+              aria-label="Help"
+              title="Help & Getting Started"
+            >
+              <HelpCircle size={18} />
+            </button>
           </div>
         </div>
       </header>
+
+      {/* Help Modal */}
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
 
       {/* Main Content */}
       <main className={`px-6 pb-20 transition-all duration-300 ${mainMargins}`}>
@@ -1320,7 +1324,7 @@ export default function LessonBuilder({
           className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-purple-500 to-blue-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group"
           aria-label="Open AI Assistant"
         >
-          <Sparkles size={24} className="group-hover:scale-110 transition-transform" />
+          <span className="text-2xl group-hover:scale-110 transition-transform">🦑</span>
         </button>
       )}
     </div>

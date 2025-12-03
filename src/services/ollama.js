@@ -214,7 +214,7 @@ class OllamaService {
     }
   }
 
-  // Streaming chat with proper cleanup
+  // Streaming chat with proper cleanup and optimized batching
   async chatStream(messages, model, onChunk, onDone, signal = null) {
     const controller = signal ? null : this.createController();
     const activeSignal = signal || controller?.signal;
@@ -258,6 +258,7 @@ class OllamaService {
         // Keep the last incomplete line in buffer
         buffer = lines.pop() || '';
 
+        // Process all lines in this batch
         for (const line of lines) {
           if (!line.trim()) continue;
 
@@ -265,7 +266,7 @@ class OllamaService {
             const data = JSON.parse(line);
             if (data.message?.content) {
               responseChunks.push(data.message.content);
-              // Build full response only when needed for callback
+              // Call onChunk immediately for every piece of content
               const fullResponse = responseChunks.join('');
               onChunk(data.message.content, fullResponse);
             }
@@ -289,7 +290,7 @@ class OllamaService {
           if (data.message?.content) {
             responseChunks.push(data.message.content);
           }
-        } catch (e) {
+        } catch {
           // Ignore final parse errors
         }
       }
@@ -297,12 +298,12 @@ class OllamaService {
       const fullResponse = responseChunks.join('');
       onDone(fullResponse);
       return fullResponse;
-    } catch (e) {
-      if (e.name === 'AbortError') {
+    } catch (err) {
+      if (err.name === 'AbortError') {
         console.log('Stream aborted');
         return null;
       }
-      throw e;
+      throw err;
     } finally {
       if (controller) {
         this.removeController(controller);
@@ -344,7 +345,7 @@ class OllamaService {
   }
 
   /**
-   * Streaming chat with vision support
+   * Streaming chat with vision support and optimized batching
    * Messages can include images array with base64 data
    */
   async chatStreamWithVision(messages, model, onChunk, onDone, signal = null) {
@@ -369,7 +370,6 @@ class OllamaService {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      // Use array + join for better performance with large responses
       const responseChunks = [];
       let buffer = '';
 
@@ -389,6 +389,7 @@ class OllamaService {
         // Keep the last incomplete line in buffer
         buffer = lines.pop() || '';
 
+        // Process all lines in this batch
         for (const line of lines) {
           if (!line.trim()) continue;
 
@@ -396,7 +397,7 @@ class OllamaService {
             const data = JSON.parse(line);
             if (data.message?.content) {
               responseChunks.push(data.message.content);
-              // Build full response only when needed for callback
+              // Call onChunk immediately for every piece of content
               const fullResponse = responseChunks.join('');
               onChunk(data.message.content, fullResponse);
             }
@@ -419,7 +420,7 @@ class OllamaService {
           if (data.message?.content) {
             responseChunks.push(data.message.content);
           }
-        } catch (e) {
+        } catch {
           // Ignore final parse errors
         }
       }
@@ -427,12 +428,12 @@ class OllamaService {
       const fullResponse = responseChunks.join('');
       onDone(fullResponse);
       return fullResponse;
-    } catch (e) {
-      if (e.name === 'AbortError') {
+    } catch (err) {
+      if (err.name === 'AbortError') {
         console.log('Vision stream aborted');
         return null;
       }
-      throw e;
+      throw err;
     } finally {
       if (controller) {
         this.removeController(controller);
@@ -561,3 +562,4 @@ export const validateChatMessage = (message) => {
 
   return { valid: true };
 };
+

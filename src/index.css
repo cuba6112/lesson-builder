@@ -261,3 +261,102 @@ button:focus-visible {
   border-top: 1px solid #e5e7eb;
   margin: 2em 0;
 }
+
+/* =============================================================================
+   PRINT STYLES - For PDF Export
+   ============================================================================= */
+
+@media print {
+  /* Page setup */
+  @page {
+    margin: 2cm;
+    size: A4;
+  }
+
+  /* Reset backgrounds for print */
+  body {
+    background-color: white !important;
+    background-image: none !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide elements that shouldn't print */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Page break utilities */
+  .print-break-after {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .print-break-before {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure code blocks print with background */
+  pre {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+  }
+
+  /* Ensure images don't break across pages */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Remove shadows in print */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Ensure links show URL in print (optional) */
+  a[href]:after {
+    content: none !important; /* Remove default URL printing */
+  }
+
+  /* Force background colors to print */
+  .bg-blue-50, .bg-green-50, .bg-purple-50, .bg-teal-50 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure tables print properly */
+  table {
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Prose styles for print */
+  .prose pre {
+    background-color: #f1f5f9 !important;
+    color: #1f2937 !important;
+    border: 1px solid #d1d5db !important;
+  }
+
+  .prose code {
+    background-color: #f3f4f6 !important;
+    color: #1f2937 !important;
+  }
+
+  /* Cover page gradient fallback */
+  .bg-gradient-to-br {
+    background: #2563eb !important;
+  }
+}
