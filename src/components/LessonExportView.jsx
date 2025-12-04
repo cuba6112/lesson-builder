@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import { saveFile } from '../services/fileSaver';
 
 /**
  * LessonExportView - PDF export using html2canvas + jsPDF
@@ -129,8 +130,13 @@ export default function LessonExportView({ lesson, onClose }) {
 
       setExportStatus('Saving file...');
 
-      // Save the PDF
-      pdf.save(filename);
+      const pdfBuffer = pdf.output('arraybuffer');
+      await saveFile({
+        data: pdfBuffer,
+        filename,
+        mimeType: 'application/pdf',
+        binary: true
+      });
 
       setExportStatus('Done!');
       setTimeout(() => setExportStatus(''), 2000);

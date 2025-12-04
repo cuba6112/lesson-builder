@@ -11,6 +11,7 @@ import MermaidBlock from './MermaidBlock';
 import MathBlock from './MathBlock';
 import { generateBlockId } from '../utils/ids';
 import { downloadMarkdown } from '../services/export';
+import { saveFile } from '../services/fileSaver';
 import LessonExportView from './LessonExportView';
 import HelpModal from './HelpModal';
 
@@ -645,6 +646,18 @@ const Block = memo(({ block, isActive, onSelect, onDelete, onUpdate, onAddBlockA
           </div>
         );
 
+      case 'memory':
+        return (
+          <div className="w-full p-3 bg-purple-50 border border-purple-200 rounded-lg" onClick={handleSelect}>
+            <div className="flex items-center gap-2 text-purple-600 text-xs font-medium mb-2">
+              <span>🧠</span> Agent Memory <span className="text-purple-400">(hidden in preview)</span>
+            </div>
+            <pre className="text-xs text-purple-800 whitespace-pre-wrap font-mono">
+              {block.content || 'Empty'}
+            </pre>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -877,19 +890,16 @@ export default function LessonBuilder({
           break;
 
         case 'markdown':
-          downloadMarkdown(lessonData);
+          await downloadMarkdown(lessonData);
           break;
 
         case 'json':
         default: {
-          const data = JSON.stringify(lessonData, null, 2);
-          const blob = new Blob([data], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${(lessonTitle || 'untitled').replace(/\s+/g, '_').toLowerCase()}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
+          await saveFile({
+            data: JSON.stringify(lessonData, null, 2),
+            filename: `${(lessonTitle || 'untitled').replace(/\s+/g, '_').toLowerCase()}.json`,
+            mimeType: 'application/json'
+          });
           break;
         }
       }
@@ -1041,12 +1051,12 @@ export default function LessonBuilder({
           {lessonTitle || 'Untitled'}
         </h1>
         <p className="text-gray-500 text-sm">
-          {blocks.length} blocks
+          {blocks.filter(b => b.type !== 'memory').length} blocks
         </p>
       </div>
 
       <div className="space-y-6">
-        {blocks.map((block) => (
+        {blocks.filter(b => b.type !== 'memory').map((block) => (
           <div key={block.id}>
             {block.type === 'heading' && (
               <h2 className="text-2xl font-bold text-gray-900">

@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify';
+import { saveFile } from './fileSaver';
 
 // @ts-nocheck
 
@@ -189,16 +190,11 @@ export function exportToMarkdown(lesson) {
  */
 export function downloadMarkdown(lesson) {
   const markdown = exportToMarkdown(lesson);
-  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${sanitizeFilename(lesson.title || 'lesson')}.md`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  return saveFile({
+    data: markdown,
+    filename: `${sanitizeFilename(lesson.title || 'lesson')}.md`,
+    mimeType: 'text/markdown;charset=utf-8'
+  });
 }
 
 // =============================================================================
@@ -874,16 +870,12 @@ export async function exportToPdf(lesson, options = {}) {
       const pdfBlob = await worker.outputPdf('blob');
       console.log('html2pdf: PDF blob generated, size:', pdfBlob.size, 'bytes');
 
-      // Create download link
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      await saveFile({
+        data: pdfBlob,
+        filename,
+        mimeType: 'application/pdf',
+        binary: true
+      });
 
       console.log('html2pdf: PDF download triggered');
     } catch (workerError) {

@@ -1,0 +1,750 @@
+{
+  "version": 1,
+  "lastUpdated": "2025-12-04T05:02:06.834Z",
+  "images": [
+    {
+      "id": "doodles-ai-doodle",
+      "path": "doodles/ai_doodle.jpg",
+      "name": "Ai Doodle",
+      "description": "This hand-drawn illustration features a robot with internal gears, surrounded by thought bubbles depicting data/learning (brain, keyboard, camera) and smart tasks (painting, puzzle), explaining AI as machines that mimic human cognition and action, illustrating concepts like machine learning, data processing, and problem-solving.",
+      "tags": [
+        "ai",
+        "machinelearning",
+        "robotics",
+        "problemsolving",
+        "data"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-ancient",
+      "path": "doodles/ancient.jpeg",
+      "name": "Ancient",
+      "description": "This image presents the title \"ANCIENT CIVILIZATIONS\" above an Ionic column illustration, with \"PYRAMID • COLUMN • PAST\" beneath, set against a weathered tile background. It visually represents ancient architectural structures and concepts of historical time, suitable for teaching about early human civilizations.",
+      "tags": [
+        "ancient",
+        "civilizations",
+        "architecture",
+        "history",
+        "past"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-astronomy",
+      "path": "doodles/astronomy.jpeg",
+      "name": "Astronomy",
+      "description": "A vintage-style lined notebook page features a hand-drawn illustration of Saturn with rings, stars, and celestial elements, labeled \"ASTRONOMY\" and \"PLANETS • STARS • SPACE,\" illustrating core astronomy concepts such as planetary systems and celestial phenomena.",
+      "tags": [
+        "astronomy",
+        "saturn",
+        "planets",
+        "stars",
+        "space"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-atomic",
+      "path": "doodles/atomic.jpeg",
+      "name": "Atomic",
+      "description": "A hand-drawn atomic model on lined notebook paper illustrates a central nucleus, orbiting electrons, and elliptical paths, clearly labeling core components to explain fundamental atomic structure concepts.",
+      "tags": [
+        "atomic",
+        "nucleus",
+        "electrons",
+        "orbits",
+        "model"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-august",
+      "path": "doodles/august.jpeg",
+      "name": "August",
+      "description": "This educational cartoon illustrates the transition from the Roman Republic to the disguised Empire during the Principate (27 BC–284 AD), depicting Augustus’s facade of restoring republicanism while consolidating autocratic power, with visual contrasts between pre-rule chaos, his “First Citizen” persona, and public/senate confusion.",
+      "tags": [
+        "romanempire",
+        "principate",
+        "augustus",
+        "republic",
+        "monarchy"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-biology",
+      "path": "doodles/biology.jpeg",
+      "name": "Biology",
+      "description": "A hand-drawn DNA double helix on lined notebook paper with \"BIOLOGY\" and \"DNA • GENETICS • LIFE\" text, illustrating core biological concepts of molecular structure, heredity, and the scientific study of life.",
+      "tags": [
+        "biology",
+        "dna",
+        "genetics",
+        "life"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-calc",
+      "path": "doodles/calc.jpeg",
+      "name": "Calc",
+      "description": "This image features a hand-drawn abacus and digital calculator on a lined notebook background, illustrating historical and modern tools for mathematical computation. It can be used to teach concepts of calculation methods, tool evolution, and numerical operations.",
+      "tags": [
+        "calculation",
+        "abacus",
+        "calculator",
+        "tools",
+        "math"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-cat-neuron",
+      "path": "doodles/cat_neuron.jpg",
+      "name": "Cat Neuron",
+      "description": "This hand-drawn diagram depicts a simple neural network for image classification, showing input, hidden, and output layers with weighted connections processing a cat image to determine \"CAT\" or \"DOG\" output; it illustrates neural network architecture, weighted connections, and binary classification concepts.",
+      "tags": [
+        "neuralnetwork",
+        "imageclassification",
+        "machinelearning",
+        "deeplearning"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-chatgpt",
+      "path": "doodles/chatgpt.jpeg",
+      "name": "Chatgpt",
+      "description": "This hand-drawn diagram illustrates the workflow of user input being processed by a GPT-based AI model (featuring neural networks and gears) to generate a chatbot response, explaining concepts like natural language processing, model inference, and LLM functionality.",
+      "tags": [
+        "ai",
+        "llm",
+        "gpt",
+        "chatbot",
+        "nlp"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-chemistry",
+      "path": "doodles/chemistry.jpeg",
+      "name": "Chemistry",
+      "description": "A hand-drawn illustration on lined notebook paper depicts a bubbling beaker and test tube, emphasizing chemistry concepts such as experiments, reactions, and scientific inquiry.",
+      "tags": [
+        "chemistry",
+        "experiment",
+        "reactions",
+        "science",
+        "lab"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-cloud",
+      "path": "doodles/cloud.jpeg",
+      "name": "Cloud",
+      "description": "The image depicts a cloud-shaped diagram filled with circuit lines and microchips, labeled \"CLOUD COMPUTING,\" to illustrate the intersection of cloud infrastructure, electronic circuitry, and technological systems in modern computing.",
+      "tags": [
+        "cloud",
+        "computing",
+        "circuit",
+        "technology",
+        "infrastructure"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-coding",
+      "path": "doodles/coding.jpeg",
+      "name": "Coding",
+      "description": "This hand-drawn illustration on lined notebook paper features a vintage computer monitor displaying curly brackets and handwritten code, emphasizing the connection between computers, syntax structure, and coding fundamentals. It visually conveys core programming concepts like code organization and bracket usage in a nostalgic educational style.",
+      "tags": [
+        "coding",
+        "computer",
+        "brackets",
+        "code"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-coding-a",
+      "path": "doodles/coding_a.jpeg",
+      "name": "Coding A",
+      "description": "A hand-drawn cartoon robot on lined notebook paper with \"CODING\" at the top and \"AI • ROBOTICS • CUTE\" at the bottom, illustrating approachable concepts of programming, artificial intelligence, and robotics for educational purposes.",
+      "tags": [
+        "coding",
+        "ai",
+        "robotics",
+        "cute",
+        "illustration"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-collaboration",
+      "path": "doodles/collaboration.jpg",
+      "name": "Collaboration",
+      "description": "The image features a vintage notepad-style illustration of two hands shaking, with \"COLLABORATION\" at the top and \"TEAMWORK • TRUST • PARTNERSHIP\" at the bottom, visually emphasizing cooperative work, mutual agreement, and interpersonal connections in group dynamics.",
+      "tags": [
+        "collaboration",
+        "teamwork",
+        "trust",
+        "partnership"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-connection",
+      "path": "doodles/connection.jpeg",
+      "name": "Connection",
+      "description": "An illustrated graphic of two interlocking puzzle pieces on lined notebook paper, labeled \"THE CONNECTION\" with \"CLICK!\" and stars, paired with \"UNITY • SYNERGY • MATCH\" to visually represent collaboration, integration, and complementary alignment.",
+      "tags": [
+        "connection",
+        "unity",
+        "synergy",
+        "match",
+        "puzzle"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-connection-grow",
+      "path": "doodles/connection_grow.jpeg",
+      "name": "Connection Grow",
+      "description": "The image features a hand-drawn open book with a green plant growing from its pages, accompanied by text like \"THE CONNECTION,\" \"GROWTH!,\" and \"UNITY • SYNERGY • MATCH,\" illustrating concepts of knowledge-driven growth, collaboration, and interconnected learning in educational contexts.",
+      "tags": [
+        "growth",
+        "connection",
+        "learning",
+        "unity",
+        "synergy"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-data",
+      "path": "doodles/data.jpeg",
+      "name": "Data",
+      "description": "A hand-drawn bar graph on lined notebook paper shows ascending bars with an upward arrow and star, labeled \"DATA\" and \"BAR GRAPH • UPWARD TREND • GROWTH\" to illustrate data visualization, positive growth trends, and bar chart representation.",
+      "tags": [
+        "bar",
+        "graph",
+        "trend",
+        "growth",
+        "data"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-data-intake",
+      "path": "doodles/data_intake.jpeg",
+      "name": "Data Intake",
+      "description": "This hand-drawn illustration on lined notebook paper depicts a funnel labeled \"DATA INTAKE\" where alphanumeric characters are processed into a gold bar marked \"VALUE CREATION,\" illustrating how raw data is transformed into valuable output through structured processing.",
+      "tags": [
+        "data",
+        "funnel",
+        "value",
+        "creation"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-diferent-neuron",
+      "path": "doodles/diferent_neuron.jpeg",
+      "name": "Diferent Neuron",
+      "description": "This image displays labeled diagrams of unipolar, bipolar, and multipolar neurons, illustrating their distinct structural features such as dendrite and axon arrangements, ideal for explaining neuron classification and neuroanatomy concepts.",
+      "tags": [
+        "neuron",
+        "neuroanatomy",
+        "classification",
+        "structure"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-doodle-field-trip",
+      "path": "doodles/doodle_field_trip.jpg",
+      "name": "Doodle Field Trip",
+      "description": "A black-and-white sketch depicts a teacher leading three students on a sidewalk for a \"Field Trip: Walk & Observe,\" passing a bakery and street elements, illustrating experiential learning and environmental observation in urban community settings.",
+      "tags": [
+        "fieldtrip",
+        "observation",
+        "learning",
+        "urban",
+        "community"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-ecology",
+      "path": "doodles/ecology.jpeg",
+      "name": "Ecology",
+      "description": "A black-and-white sketch on lined notebook paper depicts two hands cradling a globe with a sprouting plant, labeled \"ECOLOGY\" and \"HANDS • GLOBE • NATURE,\" illustrating environmental stewardship and human interconnectedness with the planet.",
+      "tags": [
+        "ecology",
+        "environment",
+        "stewardship",
+        "globe",
+        "nature"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-einstein-field-trip",
+      "path": "doodles/einstein_field_trip.jpeg",
+      "name": "Einstein Field Trip",
+      "description": "This sketch-style illustration depicts a teacher leading students on a \"Field Trip: Walk & Observe\" through an urban setting with a bakery, street lamps, and sidewalk elements, emphasizing experiential learning and environmental awareness.",
+      "tags": [
+        "fieldtrip",
+        "observation",
+        "experiential",
+        "urban",
+        "learning"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-einstein-pulling-hair",
+      "path": "doodles/einstein_pulling_hair.jpeg",
+      "name": "Einstein Pulling Hair",
+      "description": "This black-and-white sketch on lined notebook paper depicts a figure resembling Albert Einstein standing between two perspective-drawn paths with hands on head, illustrating concepts like decision-making, perspective distortion, and cognitive conflict.",
+      "tags": [
+        "decisions",
+        "perspective",
+        "conflict",
+        "sketch",
+        "illustration"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-elec",
+      "path": "doodles/elec.jpeg",
+      "name": "Elec",
+      "description": "This educational infographic uses water flow analogies to explain electricity concepts, depicting voltage as pressure, current as flow rate relative to pipe size, and resistance as pipe constriction.",
+      "tags": [
+        "electricity",
+        "voltage",
+        "current",
+        "resistance",
+        "analogy"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-energy",
+      "path": "doodles/energy.jpeg",
+      "name": "Energy",
+      "description": "A stylized illustration on lined notebook paper depicts a battery emitting a lightning bolt with stars, labeled \"ENERGY\" and \"POWER • ELECTRICITY • CHARGE,\" illustrating concepts of electrical energy, power, and charge.",
+      "tags": [
+        "energy",
+        "power",
+        "electricity",
+        "charge",
+        "battery"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-entropy",
+      "path": "doodles/entropy.jpeg",
+      "name": "Entropy",
+      "description": "A hand-drawn diagram depicts LEGO bricks evolving from a structured tower labeled \"Low Entropy (Order)\" to scattered pieces labeled \"High Entropy (Disorder)\" over time, illustrating how entropy measures increasing disorder in systems.",
+      "tags": [
+        "entropy",
+        "order",
+        "disorder",
+        "time",
+        "thermodynamics"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-experimentation",
+      "path": "doodles/experimentation.jpg",
+      "name": "Experimentation",
+      "description": "A hand-drawn illustration on lined notebook paper titled \"EXPERIMENTATION\" shows safety goggles, a clipboard with data visualizations (pie chart, bar graph, line graph), and a pencil, emphasizing scientific inquiry, data analysis, and experimental safety.",
+      "tags": [
+        "experimentation",
+        "goggles",
+        "clipboard",
+        "data",
+        "science"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-feynman",
+      "path": "doodles/feynman.jpeg",
+      "name": "Feynman",
+      "description": "This cartoon-style infographic illustrates the Feynman Technique, a four-step learning strategy (choose a concept, teach it to a child, identify gaps, simplify & refine) designed to master topics through teaching and simplification.",
+      "tags": [
+        "feynman",
+        "learning",
+        "teaching",
+        "mastery",
+        "study"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-focus",
+      "path": "doodles/focus.jpg",
+      "name": "Focus",
+      "description": "An illustrated image on lined notebook paper depicts a magnifying glass focusing on a beetle, with text emphasizing \"FOCUS!\" and \"CLARITY • PRECISION • DETAIL,\" illustrating the importance of close observation and analytical precision in learning contexts.",
+      "tags": [
+        "focus",
+        "clarity",
+        "precision",
+        "detail"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-geometry",
+      "path": "doodles/geometry.jpeg",
+      "name": "Geometry",
+      "description": "This educational graphic displays hand-drawn 3D geometric shapes (pyramid, cube, sphere) labeled on a grid-patterned background, illustrating fundamental solid geometry concepts for teaching shape recognition and spatial understanding.",
+      "tags": [
+        "geometry",
+        "solids",
+        "shapes",
+        "3d"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-goal",
+      "path": "doodles/goal.jpeg",
+      "name": "Goal",
+      "description": "This vintage-styled image features a hand-drawn target with an arrow hitting the bullseye on lined notebook paper, labeled \"THE GOAL\" and paired with \"ACHIEVEMENT • SUCCESS • FOCUS\" to illustrate goal-setting, focus, and successful outcomes in educational contexts.",
+      "tags": [
+        "goal",
+        "target",
+        "success",
+        "focus",
+        "achievement"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-hard-copy",
+      "path": "doodles/hard copy.jpeg",
+      "name": "Hard Copy",
+      "description": "This image features a hand-drawn hourglass centered on a weathered wooden plank background, with \"HISTORY\" at the top and \"HOURGLASS • TIME • PAST\" below, illustrating concepts of historical study, the passage of time, and the past.",
+      "tags": [
+        "history",
+        "time",
+        "past",
+        "hourglass",
+        "chronology"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-hard",
+      "path": "doodles/hard.jpeg",
+      "name": "Hard",
+      "description": "The image features a hand-drawn illustration of a CPU microchip with labeled components (microchip, pins, circuit) on a grid-patterned background, emphasizing core hardware concepts for educational purposes.",
+      "tags": [
+        "hardware",
+        "microchip",
+        "cpu",
+        "pins",
+        "circuit"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-hist",
+      "path": "doodles/hist.jpeg",
+      "name": "Hist",
+      "description": "The image displays a sketched hourglass on a weathered wooden background, labeled with \"HISTORY\" above and \"HOURGLASS • TIME • PAST\" below, illustrating concepts of historical chronology, the passage of time, and connections between past events and temporal measurement.",
+      "tags": [
+        "history",
+        "hourglass",
+        "time",
+        "past",
+        "chronology"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-hour",
+      "path": "doodles/hour.jpeg",
+      "name": "Hour",
+      "description": "The image displays a textured background with the title \"ANCIENT CIVILIZATIONS\" above an Ionic column illustration, paired with the words \"PYRAMID • COLUMN • PAST,\" highlighting key architectural and historical concepts of early societies.",
+      "tags": [
+        "ancient",
+        "civilizations",
+        "column",
+        "pyramid",
+        "history"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-humanneuron",
+      "path": "doodles/humanneuron.jpeg",
+      "name": "Humanneuron",
+      "description": "This hand-drawn educational diagram illustrates a neuron’s anatomy, labeling key components (dendrites, cell body, axon, axon terminals, synapse) and depicting the pathway of neural signal transmission from reception at dendrites to communication via synapse. It serves to explain core concepts of neuron structure and nervous system function.",
+      "tags": [
+        "neuron",
+        "neuroanatomy",
+        "neurotransmission",
+        "synapse"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-ideas-spark",
+      "path": "doodles/ideas_spark.jpeg",
+      "name": "Ideas Spark",
+      "description": "This hand-drawn illustration on lined notebook paper centers on a light bulb labeled \"THE SPARK,\" surrounded by symbols like musical notes, gears, rockets, and question marks, with the text \"IDEAS • CREATIVITY • INNOVATION\" below, visually representing the genesis of creative thought and innovative problem-solving.",
+      "tags": [
+        "ideas",
+        "creativity",
+        "innovation",
+        "spark",
+        "inspiration"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-ika",
+      "path": "doodles/ika.jpeg",
+      "name": "Ika",
+      "description": "A hand-drawn squid with large eyes and tentacles on lined notebook paper, ideal for teaching cephalopod anatomy in marine biology or demonstrating observational sketching techniques. The aged, hole-punched background evokes scientific field notes.",
+      "tags": [
+        "squid",
+        "cephalopod",
+        "biology",
+        "sketch",
+        "notebook"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-inf",
+      "path": "doodles/inf.jpeg",
+      "name": "Inf",
+      "description": "This image features a hand-drawn infinity symbol on a lined paper background, with \"INFINITE\" above and \"ENDLESS • LOOP • FOREVER\" below, illustrating mathematical and conceptual themes of boundlessness, cyclical repetition, and eternal continuity.",
+      "tags": [
+        "infinity",
+        "endless",
+        "loop",
+        "forever"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-meaningoflife",
+      "path": "doodles/meaningoflife.jpg",
+      "name": "Meaningoflife",
+      "description": "This notebook-style illustration explores the meaning of life through interconnected themes like love, learning, helping others, happiness, and personal creation, emphasizing that purpose is subjective and multifaceted, making it ideal for discussions on philosophy, self-discovery, and existential reflection.",
+      "tags": [
+        "meaning",
+        "life",
+        "philosophy",
+        "growth",
+        "connection"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-mechanic",
+      "path": "doodles/mechanic.jpeg",
+      "name": "Mechanic",
+      "description": "A hand-drawn illustration on lined paper shows three interlocking gears with motion arrows, labeled \"MECHANICS\" and \"GEARS • MOTION • POWER,\" depicting mechanical systems and illustrating concepts of gear interaction, motion transfer, and power transmission.",
+      "tags": [
+        "gears",
+        "mechanics",
+        "motion",
+        "power"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-med",
+      "path": "doodles/med.jpeg",
+      "name": "Med",
+      "description": "The image features a wooden background with the text \"MEDIEVAL TIMES\" above a shield bearing a lion emblem, crossed swords, and the phrase \"SWORDS • SHIELD • DEFENSE\" below, illustrating medieval warfare and defensive concepts.",
+      "tags": [
+        "medieval",
+        "swords",
+        "shield",
+        "defense",
+        "heraldry"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-microbiology",
+      "path": "doodles/microbiology.jpeg",
+      "name": "Microbiology",
+      "description": "This educational illustration depicts a stylized virus with surface spikes and a DNA helix on lined paper, labeled \"MICROBIOLOGY\" and \"BACTERIA • VIRUSES • GERMS,\" introducing foundational concepts in microbiology related to infectious microorganisms.",
+      "tags": [
+        "microbiology",
+        "viruses",
+        "bacteria",
+        "germs",
+        "illustration"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-net",
+      "path": "doodles/net.jpeg",
+      "name": "Net",
+      "description": "The image features the word \"NETWORKING\" above a triangular diagram of three connected nodes, with \"NODES • CONNECTIONS • NETWORK\" labeled below. It visually explains how nodes and connections form a network, ideal for teaching basic networking concepts.",
+      "tags": [
+        "networking",
+        "nodes",
+        "connections",
+        "network",
+        "diagram"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-neu",
+      "path": "doodles/neu.jpeg",
+      "name": "Neu",
+      "description": "This diagram illustrates three primary types of neurons—unipolar, bipolar, and multipolar—with labeled structures, highlighting their distinct morphological differences to explain fundamental concepts in neuronal classification and neuroanatomy.",
+      "tags": [
+        "neurons",
+        "classification",
+        "structure",
+        "neuroanatomy",
+        "types"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-neuron",
+      "path": "doodles/neuron.jpg",
+      "name": "Neuron",
+      "description": "The image depicts a hand-drawn diagram of a neuron with labeled components (Inputs, Processing Unit, Outputs) to illustrate neural structure and function in biological or neuroscience education.",
+      "tags": [
+        "neuron",
+        "neuroanatomy",
+        "biology",
+        "neural",
+        "structure"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-phisyc",
+      "path": "doodles/phisyc.jpeg",
+      "name": "Phisyc",
+      "description": "This cartoon-style illustration on lined notebook paper depicts a stick figure with an apple falling from a tree branch onto its head, surrounded by stars, with text labels \"PHYSICS,\" \"GRAVITY,\" \"NEWTON,\" and \"DISCOVERY,\" illustrating Isaac Newton's famed discovery of gravitational force.",
+      "tags": [
+        "physics",
+        "gravity",
+        "newton",
+        "discovery",
+        "apple"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-progress",
+      "path": "doodles/progress.jpg",
+      "name": "Progress",
+      "description": "This hand-drawn illustration on lined notebook paper shows a staircase ascending to a star labeled \"PROGRESS,\" with the phrase \"STEP BY STEP • JOURNEY • SUCCESS\" below, symbolizing incremental growth and the journey toward achievement through persistent effort. It visually conveys themes of perseverance, goal-setting, and the step-by-step nature of success.",
+      "tags": [
+        "progress",
+        "staircase",
+        "success",
+        "journey",
+        "perseverance"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-robotic",
+      "path": "doodles/robotic.jpeg",
+      "name": "Robotic",
+      "description": "A hand-drawn cartoon robot head with square eyes and an antenna on lined notebook paper, labeled \"AI/ROBOTICS\" to introduce foundational concepts in artificial intelligence and robotics for educational contexts.",
+      "tags": [
+        "ai",
+        "robotics",
+        "robot",
+        "illustration",
+        "education"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-scratching-head",
+      "path": "doodles/scratching_head.jpeg",
+      "name": "Scratching Head",
+      "description": "A stick figure on lined notebook paper appears confused, with mathematical symbols (e.g., Σ, π, integrals, a²+b²=c²) surrounding its head, illustrating student anxiety or difficulty with complex mathematical concepts.",
+      "tags": [
+        "math",
+        "anxiety",
+        "symbols",
+        "education"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-security",
+      "path": "doodles/security.jpeg",
+      "name": "Security",
+      "description": "A hand-drawn padlock integrated with digital circuit patterns on a lined paper background, labeled \"SECURITY\" and \"PADLOCK • DIGITAL LINES • PROTECTION\", illustrating concepts of cybersecurity, data protection, and digital security.",
+      "tags": [
+        "security",
+        "padlock",
+        "digital",
+        "protection",
+        "cybersecurity"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-socrates-people",
+      "path": "doodles/socrates_people.jpeg",
+      "name": "Socrates People",
+      "description": "A black-and-white sketch depicts an ancient Greek philosopher engaging in dialogue with a group of people in a city square with temples and market stalls, illustrating the Socratic method of inquiry and classical philosophical discourse.",
+      "tags": [
+        "philosophy",
+        "ancientgreece",
+        "socraticmethod",
+        "dialogue",
+        "education"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-the-struggle",
+      "path": "doodles/the_struggle.jpeg",
+      "name": "The Struggle",
+      "description": "This hand-drawn illustration on lined notebook paper depicts a stick figure overwhelmed by question marks, a crumpled paper ball, and broken pencils, with the title \"THE STRUGGLE\" and keywords \"CONFUSION • EFFORT • CHALLENGE\"—effectively illustrating the emotional and cognitive challenges of problem-solving or learning in educational contexts.",
+      "tags": [
+        "struggle",
+        "confusion",
+        "effort",
+        "challenge",
+        "perseverance"
+      ],
+      "category": "doodles"
+    },
+    {
+      "id": "doodles-trap",
+      "path": "doodles/trap.jpeg",
+      "name": "Trap",
+      "description": "A hand-drawn maze titled \"THE TRAP\" on lined notebook paper, with a stick figure approaching and text \"CONFUSION • STUCK • DEAD END\" below, illustrating challenges like confusion, being stuck, and dead ends in problem-solving scenarios.",
+      "tags": [
+        "maze",
+        "trap",
+        "confusion",
+        "stuck",
+        "deadend"
+      ],
+      "category": "doodles"
+    }
+  ]
+}
