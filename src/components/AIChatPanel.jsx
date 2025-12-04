@@ -5,6 +5,7 @@ import { Send, X, User, Loader2, Settings, Trash2, Wrench, CheckCircle, AlertCir
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { ollamaService, OllamaConnectionError, OllamaModelError, isVisionModel } from '../services/ollama';
+import { imageLibrary } from '../services/imageLibrary';
 import { generateBlockId, generateMessageId } from '../utils/ids';
 import { loadChatHistory, saveChatHistory, loadAISettings, saveAISettings, clearChatHistory } from '../services/storage';
 import { sanitizeTextInput, sanitizePromptInput } from '../utils/sanitize';
@@ -98,6 +99,26 @@ const TOOLS = {
       style: { type: 'string', description: 'Style hint: "header" for title blocks, "section" for content sections, "quiz" for interactive quizzes', required: false }
     },
   },
+
+  // Image Library Tool
+  library_image: {
+    name: 'library_image',
+    description: 'Search the image library and optionally insert the best match. Set insert=true to add to canvas, or insert=false to just see results.',
+    parameters: {
+      query: { type: 'string', description: 'Search query (e.g., "rocket", "teamwork", "science")', required: true },
+      insert: { type: 'boolean', description: 'If true, insert the best matching image into the canvas. Default: true', required: false },
+      caption: { type: 'string', description: 'Caption to show below the image', required: false }
+    },
+  },
+
+  // Memory Tool
+  save_memory: {
+    name: 'save_memory',
+    description: 'Save key facts to persistent memory. Use structured format: "user: pref1, pref2 | topic: x, y | notes: z". Max 200 chars. Overwrites previous memory.',
+    parameters: {
+      facts: { type: 'string', description: 'Structured facts to remember (max 200 chars)', required: true }
+    },
+  },
 };
 
 // =============================================================================
@@ -119,13 +140,16 @@ const buildToolCallingPrompt = (tools, context = {}) => {
 
   return `You are Ika 🦑, an AI agent that creates educational content by executing tools.
 
-## Current Lesson Context
-- Title: ${context.lessonTitle || 'Untitled'}
-- Icon: ${context.lessonIcon || '📚'}
-- Blocks: ${context.blockCount || 0}
+## Context
+Title: ${context.lessonTitle || 'Untitled'} | Blocks: ${context.blockCount || 0}
+${context.memory ? `Memory: ${context.memory}` : ''}
 
-## Available Tools
+## Tools
 ${toolDescriptions}
+
+## Rules
+- library_image: use once per response max
+- save_memory: extract key facts only (user prefs, topic, context). Max 200 chars. Format: "user: x | topic: y"
 
 ## Response Format
 You MUST respond with a JSON object containing:
@@ -136,14 +160,15 @@ You MUST respond with a JSON object containing:
 Example response for "Create a lesson about Python":
 \`\`\`json
 {
-  "thought": "User wants a Python lesson. I'll set the title, add a header, introduction, and content.",
+  "thought": "User wants a Python lesson. I'll set the title, search for a relevant image, and stream content.",
   "tool_calls": [
     {"tool": "set_lesson_title", "params": {"title": "Introduction to Python"}},
     {"tool": "set_lesson_icon", "params": {"icon": "🐍"}},
-    {"tool": "create_html_block", "params": {"content": "<div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 16px; text-align: center;'><h1 style='color: white; font-size: 2.5em; margin: 0;'>Introduction to Python</h1><p style='color: rgba(255,255,255,0.9); margin-top: 10px;'>Learn the basics of Python programming</p></div>"}},
-    {"tool": "create_html_block", "params": {"content": "<div style='background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;'><h2>📖 What is Python?</h2><p>Python is a versatile, beginner-friendly programming language...</p></div>"}}
+    {"tool": "library_image", "params": {"query": "coding python programming", "insert": true, "caption": "Python Programming"}},
+    {"tool": "stream_html_block", "params": {"prompt": "Introduction to Python programming for beginners", "style": "header"}},
+    {"tool": "stream_html_block", "params": {"prompt": "What is Python and why learn it", "style": "section"}}
   ],
-  "message": "I've created a Python lesson with a header and introduction!"
+  "message": "I've created a Python lesson with an image and introduction!"
 }
 \`\`\`
 
@@ -158,7 +183,8 @@ Example response for a question "What's on the canvas?":
 
 IMPORTANT:
 - Always respond with valid JSON
-- For content creation, use create_html_block with styled HTML
+- For content creation, use stream_html_block with a descriptive prompt
+- Use library_image to add relevant images from the library (query: topic keywords)
 - Execute multiple tools in one response when needed
 - Keep messages brief and friendly
 - Use the color palette: blue (#3b82f6), green (#10b981), amber (#f59e0b), purple (#8b5cf6)`;
@@ -446,6 +472,11 @@ export default function AIChatPanel({
   const fileInputRef = useRef(null);
   const abortControllerRef = useRef(null);
   const prevLessonIdRef = useRef(lessonId);
+  const blocksRef = useRef(blocks);
+
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
 
 
   // Load chat history when lesson changes or on mount
@@ -499,6 +530,7 @@ export default function AIChatPanel({
   // Tool execution engine (5 essential tools)
   const executeTool = useCallback(async (toolName, parameters) => {
     console.log('Executing tool:', toolName, parameters);
+    const currentBlocks = blocksRef.current || [];
 
     switch (toolName) {
       case 'set_lesson_title':
@@ -519,21 +551,21 @@ export default function AIChatPanel({
 
       case 'update_block': {
         const index = parameters.index;
-        if (index < 0 || index >= blocks.length) {
+        if (index < 0 || index >= currentBlocks.length) {
           return { success: false, result: `Invalid index: ${index}` };
         }
-        const blockId = blocks[index].id;
+        const blockId = currentBlocks[index].id;
         onUpdateBlock(blockId, 'content', parameters.content);
         return { success: true, result: `Block ${index} updated` };
       }
 
       case 'delete_block': {
         const index = parameters.index;
-        if (index < 0 || index >= blocks.length) {
+        if (index < 0 || index >= currentBlocks.length) {
           return { success: false, result: `Invalid index: ${index}` };
         }
-        onDeleteBlock(blocks[index].id);
-        return { success: true, result: `Block ${index} deleted${blocks.length === 1 ? ' (canvas reset)' : ''}` };
+        onDeleteBlock(currentBlocks[index].id);
+        return { success: true, result: `Block ${index} deleted${currentBlocks.length === 1 ? ' (canvas reset)' : ''}` };
       }
 
       case 'create_code_block': {
@@ -632,20 +664,66 @@ Do NOT include any markdown, code fences, or explanations. ONLY HTML.`;
         }
       }
 
+      case 'library_image': {
+        try {
+          const results = await imageLibrary.searchImages(parameters.query);
+          if (results.length === 0) {
+            return { success: true, result: 'No match' };
+          }
+
+          const shouldInsert = parameters.insert !== false;
+
+          if (shouldInsert) {
+            const image = results[0];
+            const imgUrl = imageLibrary.getImageUrl(image.path);
+            const caption = parameters.caption || image.description || image.name;
+            const html = `<div style="padding: 20px; text-align: center;">
+  <img src="${imgUrl}" alt="${image.name}" style="max-width: 100%; border-radius: 12px; display: block; margin: 0 auto;" />
+  <p style="margin-top: 12px; color: #6b7280; font-size: 0.875rem;">${caption}</p>
+</div>`;
+            onAddBlock({ type: 'html', content: html, showPreview: true });
+            return { success: true, result: 'Done' };
+          } else {
+            const ids = results.slice(0, 5).map(img => img.id).join(', ');
+            return { success: true, result: ids };
+          }
+        } catch {
+          return { success: false, result: 'Error' };
+        }
+      }
+
+      case 'save_memory': {
+        const facts = (parameters.facts || '').slice(0, 200); // Enforce limit
+        const currentBlocks = blocksRef.current || [];
+        const memoryBlock = currentBlocks.find(b => b.type === 'memory');
+
+        if (memoryBlock) {
+          onUpdateBlock(memoryBlock.id, 'content', facts);
+        } else {
+          onAddBlock({ type: 'memory', content: facts });
+        }
+        return { success: true, result: 'Saved' };
+      }
+
       default:
         return { success: false, result: `Unknown tool: ${toolName}` };
     }
   }, [blocks, onAddBlock, onUpdateBlock, onDeleteBlock, onSetTitle, onSetIcon, selectedModel]);
 
-  // Memoize system prompt - only rebuild when lesson metadata changes
+  // Memoize system prompt - only rebuild when lesson metadata or memory changes
   const systemPrompt = useMemo(() => {
+    // Find memory block and extract content (max 200 chars)
+    const memoryBlock = blocks.find(b => b.type === 'memory');
+    const memory = memoryBlock?.content?.slice(0, 200) || '';
+
     const context = {
       lessonTitle,
       lessonIcon,
-      blockCount: blocks.length,
+      blockCount: blocks.filter(b => b.type !== 'memory').length,
+      memory,
     };
     return buildToolCallingPrompt(TOOLS, context);
-  }, [lessonTitle, lessonIcon, blocks.length]);
+  }, [lessonTitle, lessonIcon, blocks]);
 
   // Run the AI agent with tool execution (streaming for faster feedback)
   const runAgentWithTools = useCallback(async (userMessage, options = {}) => {

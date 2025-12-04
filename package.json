@@ -11,7 +11,9 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "tauri:build:debug": "tauri build --debug"
+    "tauri:build:debug": "tauri build --debug",
+    "describe-library": "node scripts/describe-library.js",
+    "add-images": "node scripts/add-images.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
